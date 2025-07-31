@@ -1,0 +1,138 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* LMS Dark Theme Design System */
+
+@layer base {
+  :root {
+    --background: 220 26% 8%;
+    --foreground: 210 40% 98%;
+
+    --card: 220 26% 10%;
+    --card-foreground: 210 40% 95%;
+
+    --popover: 220 26% 10%;
+    --popover-foreground: 210 40% 95%;
+
+    --primary: 191 91% 55%;
+    --primary-foreground: 220 26% 8%;
+
+    --secondary: 220 26% 15%;
+    --secondary-foreground: 210 40% 95%;
+
+    --muted: 220 26% 12%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 191 91% 55%;
+    --accent-foreground: 220 26% 8%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 220 26% 18%;
+    --input: 220 26% 15%;
+    --ring: 191 91% 55%;
+
+    --radius: 0.75rem;
+
+    --neon-cyan: 191 91% 55%;
+    --neon-blue: 217 91% 60%;
+    --neon-purple: 271 91% 65%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  .glass-card {
+    @apply bg-card/50 backdrop-blur-sm border border-border/50;
+  }
+
+  .neon-glow {
+    box-shadow: 0 0 20px hsl(var(--neon-cyan) / 0.3);
+  }
+
+  .neon-border {
+    border: 1px solid hsl(var(--neon-cyan) / 0.5);
+    box-shadow: 0 0 10px hsl(var(--neon-cyan) / 0.2);
+  }
+}
+
+@layer components {
+  .course-card {
+    @apply glass-card rounded-xl p-6 hover:neon-glow transition-all duration-300 hover:scale-105;
+  }
+
+  .nav-link {
+    @apply text-muted-foreground hover:text-foreground transition-colors duration-200 relative;
+  }
+
+  .nav-link::after {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 2px;
+    bottom: -4px;
+    left: 0;
+    background: linear-gradient(90deg, hsl(var(--neon-cyan)), hsl(var(--neon-blue)));
+    transition: width 0.3s ease;
+  }
+
+  .nav-link:hover::after {
+    width: 100%;
+  }
+
+  .btn-neon {
+    @apply bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-semibold px-6 py-3 rounded-xl transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/25;
+  }
+}
+
+/* Fix for Radix Tabs: Hide inactive content panels */
+[role='tabpanel'][data-state='inactive'] {
+  display: none;
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--primary));
+  border-radius: 10px;
+  border: 2px solid hsl(var(--muted));
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--primary)) hsl(var(--muted));
+}
+
+/* Line clamp utilities for text truncation */
+.line-clamp-1 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+.line-clamp-2 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
