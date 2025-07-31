@@ -18,12 +18,12 @@ interface CourseInfo {
     description: string;
     price: number;
     instructor_name: string;
-    image_url: string; // This can be kept for fallback or removed if unused
+    image_url: string;
     sections: {
         id: string;
         title: string;
         videos: { id: string; title: string; }[];
-        quizzes: { id:string; title: string; }[];
+        quizzes: { id: string; title: string; }[];
     }[];
 }
 
@@ -46,6 +46,20 @@ interface EnrolledCourse {
     expiration_date?: string;
 }
 
+interface ApplicationStatusResponse {
+    status: 'NOT_APPLIED' | 'PENDING' | 'APPROVED' | 'REJECTED';
+}
+
+interface PurchaseInfo {
+    course_title: string;
+    course_price: number;
+    bank_accounts: {
+        bank_name: string;
+        account_name: string;
+        account_number: string;
+    }[];
+}
+
 interface EnrollmentFormData {
     first_name: string;
     last_name: string;
@@ -59,10 +73,11 @@ const CourseDetail: FC = () => {
     const { courseId } = useParams<{ courseId: string }>();
     const navigate = useNavigate();
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const enrollmentFormRef = useRef<HTMLDivElement>(null);
+    const paymentFileInputRef = useRef<HTMLInputElement>(null);
 
     // --- STATE ---
     const [course, setCourse] = useState<CourseInfo | null>(null);
+    const [applicationStatus, setApplicationStatus] = useState<ApplicationStatusResponse['status'] | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [showEnrollmentForm, setShowEnrollmentForm] = useState(false);
@@ -75,6 +90,14 @@ const CourseDetail: FC = () => {
         contact_number: '',
         qualification_certificate: null
     });
+    const [showPaymentForm, setShowPaymentForm] = useState(false);
+    const [paymentFile, setPaymentFile] = useState<File | null>(null);
+    const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+    const [purchaseInfo, setPurchaseInfo] = useState<PurchaseInfo | null>(null);
+    const [isLoadingPurchaseInfo, setIsLoadingPurchaseInfo] = useState(false);
+    const [paymentSubmitted, setPaymentSubmitted] = useState(false);
+    
+    // Video states
     const [videos, setVideos] = useState<Video[]>([]);
     const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
     const [isLoadingVideos, setIsLoadingVideos] = useState(false);
@@ -82,7 +105,7 @@ const CourseDetail: FC = () => {
     const [completingVideoId, setCompletingVideoId] = useState<string | null>(null);
 
     useEffect(() => {
-        const fetchCourseAndCheckEnrollment = async () => {
+        const fetchCourseAndStatus = async () => {
             if (!courseId) {
                 setError("Course ID is missing.");
                 setIsLoading(false);
@@ -91,34 +114,45 @@ const CourseDetail: FC = () => {
 
             setIsLoading(true);
             try {
-                // First check if course is enrolled
-                const enrolledResponse = await fetchWithAuth('/api/courses/my-courses');
-                const enrolledCourses = await handleApiResponse<EnrolledCourse[]>(enrolledResponse);
-                const enrolledCourse = enrolledCourses.find(course => course.id === courseId);
-                const isCourseEnrolled = !!enrolledCourse;
-                setIsEnrolled(isCourseEnrolled);
-
-                // Try to fetch detailed course info from explore courses
+                // Fetch main course details and status in parallel
+                const coursePromise = fetchWithAuth(`/api/courses/explore-courses/${courseId}`);
+                
+                let statusResponse: ApplicationStatusResponse;
                 try {
-                    const courseResponse = await fetchWithAuth(`/api/courses/explore-courses/${courseId}`);
-                    const courseData = await handleApiResponse<CourseInfo>(courseResponse);
-                    setCourse(courseData);
-                } catch (exploreError) {
-                    // If explore course fetch fails, create a basic course object from enrolled course data
-                    if (enrolledCourse) {
-                        const basicCourse: CourseInfo = {
-                            id: enrolledCourse.id,
-                            title: enrolledCourse.title,
-                            description: `Course: ${enrolledCourse.title}`,
-                            price: 0, // Default price for enrolled courses
-                            instructor_name: enrolledCourse.instructor || 'Instructor',
-                            image_url: enrolledCourse.thumbnail_url || '',
-                            sections: [] // Empty sections for enrolled courses
-                        };
-                        setCourse(basicCourse);
-                    } else {
-                        throw new Error('Course not found in enrolled or explore courses');
+                    const statusPromise = fetchWithAuth(`/api/courses/my-courses/${courseId}/enrollment-status`);
+                    statusResponse = await handleApiResponse<ApplicationStatusResponse>(await statusPromise);
+                } catch (statusError) {
+                    console.log('Enrollment status endpoint failed, will check enrollment directly');
+                    statusResponse = { status: 'NOT_APPLIED' };
+                }
+
+                const courseResponse = await handleApiResponse<CourseInfo>(await coursePromise);
+                setCourse(courseResponse);
+                setApplicationStatus(statusResponse.status);
+
+                // Always check if user is enrolled (for video access) regardless of application status
+                try {
+                    const enrolledResponse = await fetchWithAuth('/api/courses/my-courses');
+                    const enrolledCourses = await handleApiResponse<EnrolledCourse[]>(enrolledResponse);
+                    const enrolledCourse = enrolledCourses.find(course => course.id === courseId);
+                    const isUserEnrolled = !!enrolledCourse;
+                    setIsEnrolled(isUserEnrolled);
+                
+                    console.log('Enrollment check:', {
+                        courseId,
+                        applicationStatus: statusResponse.status,
+                        isUserEnrolled,
+                        enrolledCourse: enrolledCourse ? 'Found' : 'Not found'
+                    });
+                
+                    // If user is enrolled but application status is not APPROVED, update the status
+                    if (isUserEnrolled && statusResponse.status !== 'APPROVED') {
+                        console.log('User is enrolled but status was not APPROVED, updating status');
+                        setApplicationStatus('APPROVED');
                     }
+                } catch (enrollmentError) {
+                    console.error('Failed to check enrollment status:', enrollmentError);
+                    // Don't fail the entire request if enrollment check fails
                 }
 
             } catch (err) {
@@ -132,23 +166,10 @@ const CourseDetail: FC = () => {
             }
         };
 
-        fetchCourseAndCheckEnrollment();
+        fetchCourseAndStatus();
     }, [courseId, navigate]);
 
-    // Auto-scroll to payment section when application is approved
-    useEffect(() => {
-        // This useEffect is no longer needed as payment form is removed
-        // if (applicationStatus === 'APPROVED' && paymentSectionRef.current) {
-        //     setTimeout(() => {
-        //         paymentSectionRef.current?.scrollIntoView({ 
-        //             behavior: 'smooth', 
-        //             block: 'start' 
-        //         });
-        //     }, 500); // Small delay to ensure the component is rendered
-        // }
-    }, []); // Removed applicationStatus from dependency array
-
-    // Fetch videos when course is enrolled
+    // Fetch videos when enrolled
     useEffect(() => {
         const fetchVideos = async () => {
             if (!courseId || !isEnrolled) return;
@@ -159,7 +180,7 @@ const CourseDetail: FC = () => {
                 const data = await handleApiResponse<Video[]>(response);
                 setVideos(data);
                 if (data.length > 0) {
-                    setSelectedVideo(data[0]); // Select first video by default
+                    setSelectedVideo(data[0]);
                 }
             } catch (error) {
                 console.error('Failed to fetch videos:', error);
@@ -174,14 +195,6 @@ const CourseDetail: FC = () => {
 
     const handleEnroll = () => {
         setShowEnrollmentForm(true);
-        
-        // Scroll to enrollment form after a short delay to ensure it's rendered
-        setTimeout(() => {
-            enrollmentFormRef.current?.scrollIntoView({ 
-                behavior: 'smooth', 
-                block: 'start' 
-            });
-        }, 100);
     };
 
     const handleFormSubmit = async (e: React.FormEvent) => {
@@ -213,15 +226,13 @@ const CourseDetail: FC = () => {
             formData.append('course_id', courseId);
             formData.append('qualification_certificate', enrollmentForm.qualification_certificate);
             
-            console.log('Submitting enrollment form with course ID:', courseId);
             const response = await fetchWithAuth(`/api/enrollments/apply`, { 
                 method: 'POST',
                 body: formData,
             });
-            console.log('Enrollment response status:', response.status);
             await handleApiResponse(response);
             toast.success('Enrollment application submitted successfully!');
-            // setApplicationStatus('PENDING'); // This state is no longer needed
+            setApplicationStatus('PENDING');
             setShowEnrollmentForm(false);
         } catch (error) {
             console.error('Enrollment error:', error);
@@ -249,8 +260,63 @@ const CourseDetail: FC = () => {
         }
     };
 
+    const handlePaymentProofSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!courseId || !paymentFile) return;
+
+        setIsSubmittingPayment(true);
+        
+        try {
+            const formData = new FormData();
+            formData.append('file', paymentFile);
+            
+            const response = await fetchWithAuth(`/api/enrollments/${courseId}/payment-proof`, { 
+                method: 'POST',
+                body: formData,
+            });
+            await handleApiResponse(response);
+            toast.success('Payment proof submitted successfully!');
+            setShowPaymentForm(false);
+            setPaymentFile(null);
+            setPaymentSubmitted(true);
+        } catch (error) {
+            toast.error('Failed to submit payment proof.');
+        } finally {
+            setIsSubmittingPayment(false);
+        }
+    };
+
+    const handlePaymentFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setPaymentFile(file);
+        }
+    };
+
+    const fetchPurchaseInfo = async () => {
+        if (!courseId) return;
+        
+        setIsLoadingPurchaseInfo(true);
+        try {
+            const response = await fetchWithAuth(`/api/enrollments/courses/${courseId}/purchase-info`);
+            const data = await handleApiResponse<PurchaseInfo>(response);
+            setPurchaseInfo(data);
+        } catch (error) {
+            toast.error('Failed to load payment information.');
+        } finally {
+            setIsLoadingPurchaseInfo(false);
+        }
+    };
+
+    const handleShowPaymentForm = async () => {
+        if (!purchaseInfo) {
+            await fetchPurchaseInfo();
+        }
+        setShowPaymentForm(true);
+    };
+
+    // Video handling functions
     const handleVideoPlay = async (video: Video) => {
-        // Mark video as completed when played
         if (!video.watched) {
             setCompletingVideoId(video.id);
             try {
@@ -258,7 +324,6 @@ const CourseDetail: FC = () => {
                     method: 'POST',
                 });
                 
-                // Update local state to mark video as watched
                 setVideos(prevVideos => 
                     prevVideos.map(v => 
                         v.id === video.id ? { ...v, watched: true } : v
@@ -268,7 +333,7 @@ const CourseDetail: FC = () => {
                 
                 toast.success('Video marked as completed!');
             } catch (error) {
-                console.error('Failed to mark video as completed:', error);
+                console.error('Failed to mark339 video as completed:', error);
                 toast.error('Failed to mark video as completed.');
             } finally {
                 setCompletingVideoId(null);
@@ -283,12 +348,10 @@ const CourseDetail: FC = () => {
     const handleVideoToggleWatched = async (video: Video) => {
         setCompletingVideoId(video.id);
         try {
-            // Use the same endpoint for both watched and unwatched - backend handles the toggle
             await fetchWithAuth(`/api/courses/videos/${video.id}/complete`, {
                 method: 'POST',
             });
             
-            // Toggle the local state
             const newWatchedState = !video.watched;
             setVideos(prevVideos => 
                 prevVideos.map(v => 
@@ -297,7 +360,6 @@ const CourseDetail: FC = () => {
             );
             setSelectedVideo(prev => prev?.id === video.id ? { ...prev, watched: newWatchedState } : prev);
             
-            // Show appropriate success message
             toast.success(newWatchedState ? 'Video marked as completed!' : 'Video marked as unwatched!');
         } catch (error) {
             console.error('Failed to toggle video status:', error);
@@ -306,9 +368,6 @@ const CourseDetail: FC = () => {
             setCompletingVideoId(null);
         }
     };
-
-    // handlePaymentProofSubmit, handlePaymentFileChange, fetchPurchaseInfo, handleShowPaymentForm, handleVideoSelect, handleVideoPlay
-    // These functions are no longer needed as payment form is removed
 
     if (isLoading) {
         return (
@@ -355,141 +414,432 @@ const CourseDetail: FC = () => {
                         <CardDescription>Taught by: {course.instructor_name}</CardDescription>
                     </CardHeader>
                     <CardContent className="p-6">
+
                         <div className="mb-6">
-                            <h3 className="text-xl font-semibold mb-3 text-gray-800">Course Description</h3>
-                            <div className="bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500">
-                                <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{course.description}</p>
+                            <h3 className="text-xl font-semibold mb-3 text-foreground">Course Description</h3>
+                            <div className="rounded-lg p-4 bg-muted/50 dark:bg-muted/20 border">
+                                <p className="leading-relaxed whitespace-pre-wrap text-foreground/80">{course.description}</p>
                             </div>
                         </div>
                         
-                        {/* Enrollment Form Section */}
-                        {!isEnrolled && (
-                            <div className="mt-6" ref={enrollmentFormRef}>
-                                {!showEnrollmentForm ? (
-                                    <Button onClick={handleEnroll} size="lg" className="w-full">
-                                        Enroll Request Application (${course.price})
-                                    </Button>
-                                ) : (
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle>Enrollment Application</CardTitle>
-                                            <CardDescription>Please fill in your details to apply for this course.</CardDescription>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <form onSubmit={handleFormSubmit} className="space-y-4">
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div>
-                                                        <Label htmlFor="first_name">First Name *</Label>
-                                                        <Input
-                                                            id="first_name"
-                                                            value={enrollmentForm.first_name}
-                                                            onChange={(e) => handleInputChange('first_name', e.target.value)}
-                                                            required
-                                                        />
+                        {/* Enrollment tāsApplication Section */}
+                        {applicationStatus === 'NOT_APPLIED' && !showEnrollmentForm && (
+                            <Button onClick={handleEnroll} size="lg" className="w-full">
+                                Enroll Request Application (${course.price})
+                            </Button>
+                        )}
+                        
+                        {applicationStatus === 'NOT_APPLIED' && showEnrollmentForm && (
+                            <Card className="mt-6">
+                                <CardHeader>
+                                    <CardTitle>Enrollment Application</CardTitle>
+                                    <CardDescription>Please fill in your details to apply for this course.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <form onSubmit={handleFormSubmit} className="space-y-4">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <Label htmlFor="first_name">First Name *</Label>
+                                                <Input
+                                                    id="first_name"
+                                                    value={enrollmentForm.first_name}
+                                                    onChange={(e) => handleInputChange('first_name', e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="last_name">Last Name *</Label>
+                                                <Input
+                                                    id="last_name"
+                                                    value={enrollmentForm.last_name}
+                                                    onChange={(e) => handleInputChange('last_name', e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+                                        
+                                        <div>
+                                            <Label htmlFor="qualification">Qualification *</Label>
+                                            <Input
+                                                id="qualification"
+                                                value={enrollmentForm.qualification}
+                                                onChange={(e) => handleInputChange('qualification', e.target.value)}
+                                                placeholder="e.g., Bachelor's in Medical Imaging"
+                                                required
+                                            />
+                                        </div>
+                                        
+                                        <div>
+                                            <Label htmlFor="ultrasound_experience">Ultrasound Experience *</Label>
+                                            <Textarea
+                                                id="ultrasound_experience"
+                                                value={enrollmentForm.ultrasound_experience}
+                                                onChange={(e) => handleInputChange('ultrasound_experience', e.target.value)}
+                                                placeholder="Describe your experience with ultrasound technology"
+                                                required
+                                            />
+                                        </div>
+                                        
+                                        <div>
+                                            <Label htmlFor="contact_number">Contact Number *</Label>
+                                            <Input
+                                                id="contact_number"
+                                                value={enrollmentForm.contact_number}
+                                                onChange={(e) => handleInputChange('contact_number', e.target.value)}
+                                                placeholder="+1234567890"
+                                                required
+                                            />
+                                        </div>
+                                        
+                                        <div>
+                                            <Label htmlFor="qualification_certificate">Qualification Certificate *</Label>
+                                            <div className="flex items-center space-x-2">
+                                                <Input
+                                                    id="qualification_certificate"
+                                                    type="file"
+                                                    accept="image/*,.pdf"
+                                                    onChange={handleFileChange}
+                                                    ref={fileInputRef}
+                                                    required
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                >
+                                                    <Upload className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                            {enrollmentForm.qualification_certificate && (
+                                                <p className="text-sm text-green-600 mt-1">
+                                                    File selected: {enrollmentForm.qualification_certificate.name}
+                                                </p>
+                                            )}
+                                        </div>
+                                        
+                                        <div className="flex space-x-2">
+                                            <Button
+                                                type="submit"
+                                                disabled={isSubmitting}
+                                                className="flex-1"
+                                            >
+                                                {isSubmitting ? (
+                                                    <>
+                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                        Submitting...
+                                                    </>
+                                                ) : (
+                                                    'Submit Application'
+                                                )}
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => setShowEnrollmentForm(false)}
+                                                disabled={isSubmitting}
+                                            >
+                                                Cancel
+                                            </Button>
+                                        </div>
+                                    </form>
+                                </CardContent>
+                            </Card>
+                        )}
+                        
+                        {applicationStatus === 'PENDING' && (
+                            <Card className="mt-6 border-yellow-200 bg-yellow-50">
+                                <CardContent className="p-6">
+                                    <div className="text-center">
+                                        <div className="mx-auto w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
+                                            <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </div>
+                                        <h3 className="text-xl font-semibold text-yellow-800 mb-2">
+                                            Application Pending Review
+                                        </h3>
+                                        <p className="text-yellow-700">
+                                            Your enrollment application is currently under review by our admin team. 
+                                            You will be notified once your application is approved or rejected.
+                                        </p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+                        
+                        {applicationStatus === 'APPROVED' && !isEnrolled && !showPaymentForm && !paymentSubmitted && (
+                            <div className="text-center">
+                                <Card className="mt-6 border-green-200 bg-green-50">
+                                    <CardContent className="p-6">
+                                        <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                                            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </div>
+                                        <h3 className="text-xl font-semibold text-green-800 mb-2">
+                                            Application Approved!
+                                        </h3>
+                                        <p className="text-green-700 mb-4">
+                                            Your enrollment application has been approved. Please submit your payment proof to complete the enrollment.
+                                        </p>
+                                        <Button 
+                                            onClick={handleShowPaymentForm} 
+                                            size="lg" 
+                                            className="w-full"
+                                            disabled={isLoadingPurchaseInfo}
+                                        >
+                                            {isLoadingPurchaseInfo ? (
+                                                <>
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                    Loading Payment Info...
+                                                </>
+                                            ) : (
+                                                'Submit Payment Proof'
+                                            )}
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        )}
+                        
+                        {applicationStatus === 'APPROVED' && !isEnrolled && showPaymentForm && !paymentSubmitted && (
+                            <Card className="mt-6 border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg">
+                                <CardHeader className="bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-t-lg">
+                                    <CardTitle className="flex items-center gap-2">
+                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                                        </svg>
+                                        Payment Information
+                                    </CardTitle>
+                                    <CardDescription className="text-green-100">
+                                        Please make the payment and upload your proof of payment to complete your enrollment.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="p-6">
+                                    {purchaseInfo && (
+                                        <div className="mb-8">
+                                            {/* Course and Amount Section */}
+                                            <div className="bg-white rounded-xl p-6 shadow-md border border-green-200 mb-6">
+                                                <div className="flex items-center justify-between mb-4">
+                                                    <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                                        <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                                        </svg>
+                                                        Course Details
+                                                    </h3>
+                                                    <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
+                                                        ${purchaseInfo.course_price.toLocaleString()}
                                                     </div>
-                                                    <div>
-                                                        <Label htmlFor="last_name">Last Name *</Label>
-                                                        <Input
-                                                            id="last_name"
-                                                            value={enrollmentForm.last_name}
-                                                            onChange={(e) => handleInputChange('last_name', e.target.value)}
-                                                            required
-                                                        />
+                                                </div>
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                                        <span className="text-gray-600 font-medium">Course Title:</span>
+                                                        <span className="text-gray-800 font-semibold">{purchaseInfo.course_title}</span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                                                        <span className="text-gray-600 font-medium">Total Amount:</span>
+                                                        <span className="text-green-700 font-bold text-lg">${purchaseInfo.course_price.toLocaleString()}</span>
                                                     </div>
                                                 </div>
-                                                
-                                                <div>
-                                                    <Label htmlFor="qualification">Qualification *</Label>
-                                                    <Input
-                                                        id="qualification"
-                                                        value={enrollmentForm.qualification}
-                                                        onChange={(e) => handleInputChange('qualification', e.target.value)}
-                                                        placeholder="e.g., Bachelor's in Medical Imaging"
-                                                        required
-                                                    />
+                                            </div>
+
+                                            {/* Bank Account Details */}
+                                            <div className="bg-white rounded-xl p-6 shadow-md border border-blue-200">
+                                                <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                                                    </svg>
+                                                    Bank Account Details
+                                                </h4>
+                                                <div className="space-y-4">
+                                                    {purchaseInfo.bank_accounts.map((account, index) => (
+                                                        <div key={index} className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border-2 border-blue-200 shadow-sm">
+                                                            <div className="flex items-center justify-between mb-4">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+                                                                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                                                                        </svg>
+                                                                    </div>
+                                                                    <div>
+                                                                        <h5 className="font-bold text-blue-800 text-lg">{account.bank_name}</h5>
+                                                                        <p className="text-blue-600 text-sm">Bank Account</p>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">
+                                                                    Active
+                                                                </div>
+                                                            </div>
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                                <div className="bg-white p-4 rounded-lg border border-blue-200">
+                                                                    <p className="text-gray-500 text-sm font-medium mb-1">Account Name</p>
+                                                                    <p className="text-gray-800 font-semibold">{account.account_name}</p>
+                                                                </div>
+                                                                <div className="bg-white p-4 rounded-lg border border-blue-200">
+                                                                    <p className="text-gray-500 text-sm font-medium mb-1">Account Number</p>
+                                                                    <p className="text-gray-800 font-semibold font-mono">{account.account_number}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                                                <p className="text-yellow-800 text-sm flex items-center gap-2">
+                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                                                    </svg>
+                                                                    Please include your name as reference when making the payment
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
                                                 </div>
-                                                
-                                                <div>
-                                                    <Label htmlFor="ultrasound_experience">Ultrasound Experience *</Label>
-                                                    <Textarea
-                                                        id="ultrasound_experience"
-                                                        value={enrollmentForm.ultrasound_experience}
-                                                        onChange={(e) => handleInputChange('ultrasound_experience', e.target.value)}
-                                                        placeholder="Describe your experience with ultrasound technology"
-                                                        required
-                                                    />
-                                                </div>
-                                                
-                                                <div>
-                                                    <Label htmlFor="contact_number">Contact Number *</Label>
-                                                    <Input
-                                                        id="contact_number"
-                                                        value={enrollmentForm.contact_number}
-                                                        onChange={(e) => handleInputChange('contact_number', e.target.value)}
-                                                        placeholder="+1234567890"
-                                                        required
-                                                    />
-                                                </div>
-                                                
-                                                <div>
-                                                    <Label htmlFor="qualification_certificate">Qualification Certificate *</Label>
-                                                    <div className="flex items-center space-x-2">
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Payment Proof Upload Section */}
+                                    <div className="bg-white rounded-xl p-6 shadow-md border border-purple-200 mt-6">
+                                        <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                            <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                            </svg>
+                                            Upload Payment Proof
+                                        </h4>
+                                        
+                                        <form onSubmit={handlePaymentProofSubmit} className="space-y-6">
+                                            <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-6 rounded-xl border-2 border-dashed border-purple-300">
+                                                <div className="text-center">
+                                                    <div className="mx-auto w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4">
+                                                        <Upload className="h-8 w-8 text-purple-600" />
+                                                    </div>
+                                                    <h5 className="text-lg font-semibold text-gray-800 mb-2">Upload Payment Receipt</h5>
+                                                    <p className="text-gray-600 mb-4">
+                                                        Please upload a screenshot or photo of your payment receipt/confirmation
+                                                    </p>
+                                                    
+                                                    <div className="flex items-center justify-center space-x-2">
                                                         <Input
-                                                            id="qualification_certificate"
+                                                            id="payment_file"
                                                             type="file"
                                                             accept="image/*,.pdf"
-                                                            onChange={handleFileChange}
-                                                            ref={fileInputRef}
+                                                            onChange={handlePaymentFileChange}
+                                                            ref={paymentFileInputRef}
                                                             required
+                                                            className="max-w-xs"
                                                         />
                                                         <Button
                                                             type="button"
                                                             variant="outline"
-                                                            onClick={() => fileInputRef.current?.click()}
+                                                            onClick={() => paymentFileInputRef.current?.click()}
+                                                            className="bg-purple-600 text-white hover:bg-purple-700 border-purple-600"
                                                         >
-                                                            <Upload className="h-4 w-4" />
+                                                            <Upload className="h-4 w-4 mr-2" />
+                                                            Browse
                                                         </Button>
                                                     </div>
-                                                    {enrollmentForm.qualification_certificate && (
-                                                        <p className="text-sm text-green-600 mt-1">
-                                                            File selected: {enrollmentForm.qualification_certificate.name}
-                                                        </p>
+                                                    
+                                                    {paymentFile && (
+                                                        <div className="mt-4 p-3 bg-green-100 border border-green-300 rounded-lg">
+                                                            <p className="text-green-800 text-sm flex items-center gap-2">
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                                </svg>
+                                                                File selected: {paymentFile.name}
+                                                            </p>
+                                                        </div>
                                                     )}
                                                 </div>
-                                                
-                                                <div className="flex space-x-2">
-                                                    <Button
-                                                        type="submit"
-                                                        disabled={isSubmitting}
-                                                        className="flex-1"
-                                                    >
-                                                        {isSubmitting ? (
-                                                            <>
-                                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                                Submitting...
-                                                            </>
-                                                        ) : (
-                                                            'Submit Application'
-                                                        )}
-                                                    </Button>
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        onClick={() => setShowEnrollmentForm(false)}
-                                                        disabled={isSubmitting}
-                                                    >
-                                                        Cancel
-                                                    </Button>
-                                                </div>
-                                            </form>
-                                        </CardContent>
-                                    </Card>
-                                )}
-                            </div>
+                                            </div>
+                                            
+                                            <div className="flex space-x-3">
+                                                <Button
+                                                    type="submit"
+                                                    disabled={isSubmittingPayment}
+                                                    className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
+                                                >
+                                                    {isSubmittingPayment ? (
+                                                        <>
+                                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                            Submitting Payment Proof...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                            </svg>
+                                                            Submit Payment Proof
+                                                        </>
+                                                    )}
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    onClick={() => {
+                                                        setShowPaymentForm(false);
+                                                        setPaymentFile(null);
+                                                    }}
+                                                    disabled={isSubmittingPayment}
+                                                    className="px-6 py-3 border-gray-300 text-gray-700 hover:bg-gray-50"
+                                                >
+                                                    Cancel
+                                                </Button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+                        
+                        {applicationStatus === 'REJECTED' && (
+                            <Card className="mt-6 border-red-200 bg-red-50">
+                                <CardContent className="p-6">
+                                    <div className="text-center">
+                                        <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                                            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </div>
+                                        <h3 className="text-xl font-semibold text-red-800 mb-2">
+                                            Application Rejected
+                                        </h3>
+                                        <p className="text-red-700">
+                                            Your enrollment application has been rejected. Please contact support for more information.
+                                        </p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+                        
+                        {paymentSubmitted && (
+                            <Card className="mt-6 border-green-200 bg-green-50">
+                                <CardContent className="p-6">
+                                    <div className="text-center">
+                                        <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                                            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </div>
+                                        <h3 className="text-xl font-semibold text-green-800 mb-2">
+                                            Payment Proof Submitted Successfully!
+                                        </h3>
+                                        <p className="text-green-700 mb-4">
+                                            Your enrollment is being processed. Our admin team will review your payment proof and approve your enrollment within 24 hours.
+                                        </p>
+                                        <div className="bg-white rounded-lg p-4 border border-green-200">
+                                            <p className="text-sm text-green-600">
+                                                <strong>What happens next?</strong>
+                                            </p>
+                                            <ul className="text-sm text-green-600 mt-2 space-y-1">
+                                                <li>• Admin will verify your payment proof</li>
+                                                <li>• You'll receive confirmation within 24 hours</li>
+                                                <li>• Once approved, you'll have full access to the course</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
                         )}
 
                         {/* Video Player Section - Only show when enrolled */}
-                        {isEnrolled && (
+                        {isEnrolled ? (
                             <div className="mt-8">
                                 <h3 className="text-2xl font-bold mb-4">Course Videos</h3>
                                 
@@ -529,20 +879,6 @@ const CourseDetail: FC = () => {
                                                             <div className="p-4">
                                                                 <h4 className="text-xl font-semibold mb-2">{selectedVideo.title}</h4>
                                                                 <p className="text-muted-foreground">{selectedVideo.description}</p>
-                                                                <div className="flex items-center mt-2">
-                                                                    <Badge variant={selectedVideo.watched ? "default" : "secondary"}>
-                                                                        {completingVideoId === selectedVideo.id ? (
-                                                                            <>
-                                                                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                                                                Marking as completed...
-                                                                            </>
-                                                                        ) : selectedVideo.watched ? (
-                                                                            "Watched"
-                                                                        ) : (
-                                                                            "Not Watched"
-                                                                        )}
-                                                                    </Badge>
-                                                                </div>
                                                                 <div className="flex items-center justify-between mt-4">
                                                                     <Badge variant={selectedVideo.watched ? "default" : "secondary"}>
                                                                         {completingVideoId === selectedVideo.id ? (
@@ -594,7 +930,7 @@ const CourseDetail: FC = () => {
                                                         </div>
                                                     ) : (
                                                         <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
-                                                            <div className="text-center">
+                                                            <div className="shop text-center">
                                                                 <Play className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
                                                                 <p className="text-muted-foreground">Select a video to start learning</p>
                                                             </div>
@@ -627,24 +963,29 @@ const CourseDetail: FC = () => {
                                                             >
                                                                 <div className="flex items-center justify-between">
                                                                     <div className="flex-1">
-                                                                        <h5 className="font-medium text-sm line-clamp-2">{video.title}</h5>
-                                                                        <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                                                                            {video.description}
-                                                                        </p>
+                                                                        <h5 className="text-base font-semibold text-gray-800 line-clamp-2 leading-tight hover:text-blue-600 transition-colors duration-200">{video.title}</h5>
+                                                                        
+                                                                    
                                                                     </div>
                                                                     <div className="flex items-center space-x-2">
-                                                                        <Badge 
-                                                                            variant={video.watched ? "default" : "secondary"}
-                                                                            className="text-xs"
-                                                                        >
-                                                                            {completingVideoId === video.id ? (
-                                                                                <Loader2 className="h-3 w-3 animate-spin" />
-                                                                            ) : video.watched ? (
-                                                                                "✓"
-                                                                            ) : (
-                                                                                "○"
-                                                                            )}
-                                                                        </Badge>
+                                                                        <span
+  className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium shadow-sm transition-colors duration-150
+    ${completingVideoId === video.id
+      ? 'bg-gray-200 text-gray-500'
+      : video.watched
+        ? 'bg-green-700 text-white border border-green-900'
+        : 'bg-blue-50 text-blue-600 border border-blue-200'}
+  `}
+>
+  {completingVideoId === video.id ? (
+    <Loader2 className="h-3 w-3 animate-spin" />
+  ) : video.watched ? (
+    <svg className="h-3 w-3 mr-1" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+  ) : (
+    <svg className="h-3 w-3 mr-1" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg>
+  )}
+  {video.watched ? 'Watched' : 'Not Watched'}
+</span>
                                                                         
                                                                         <Button
                                                                             onClick={(e) => {
@@ -691,21 +1032,7 @@ const CourseDetail: FC = () => {
                                     </Card>
                                 )}
                             </div>
-                        )}
-
-                        {/* Course Content Section - Removed */}
-                        {/* <div className="mt-8">
-                            <h3 className="text-2xl font-bold mb-4">Course Content</h3>
-                            {course.sections.map(section => (
-                                <div key={section.id} className="mb-4">
-                                    <h4 className="text-xl font-semibold">{section.title}</h4>
-                                    <ul className="list-disc list-inside ml-4 mt-2">
-                                        {section.videos.map(video => <li key={video.id}>{video.title}</li>)}
-                                        {section.quizzes.map(quiz => <li key={quiz.id}>{quiz.title} (Quiz)</li>)}
-                                    </ul>
-                                </div>
-                            ))}
-                        </div> */}
+                        ) : null}
                     </CardContent>
                 </Card>
                 <Button variant="outline" className="w-full mt-4" onClick={() => navigate('/student/courses')}>Back to Courses</Button>
@@ -714,4 +1041,4 @@ const CourseDetail: FC = () => {
     );
 };
 
-export default CourseDetail;
+export default CourseDetail; 

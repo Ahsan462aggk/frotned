@@ -15,6 +15,7 @@ interface EnrolledCourse {
   progress?: number;
   totalLessons?: number;
   completedLessons?: number;
+  description?: string;
   thumbnail_url?: string;
   expiration_date?: string;
 }
@@ -91,6 +92,7 @@ const Courses = () => {
                       <img src={course.thumbnail_url || `https://placehold.co/600x400/000000/FFFFFF?text=${course.title.split(' ')[0]}`} alt={course.title} className="w-full h-48 object-cover" />
                       <div className="p-4 flex flex-col flex-grow">
                         <h3 className="text-lg font-semibold mb-2 h-14">{course.title}</h3>
+                        <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{course.description}</p>
                         <p className="text-sm text-muted-foreground mb-2">By {course.instructor || 'Instructor'}</p>
                         
                         {course.expiration_date && (
@@ -144,9 +146,10 @@ const Courses = () => {
                 {exploreCourses.map((course) => (
                   <Link to={`/student/courses/${course.id}`} key={course.id} className="block hover:no-underline">
                     <Card className="overflow-hidden transform hover:-translate-y-1 transition-transform duration-300 ease-in-out shadow-lg hover:shadow-xl h-full flex flex-col">
-                      <img src={course.thumbnail_url || `https://placehold.co/600x400/3b82f6/FFFFFF?text=Explore`} alt={course.title} className="w-full h-48 object-cover" />
+                      <img src={course.thumbnail_url || `https://placehold.co/400x240/3b82f6/FFFFFF?text=Explore`} alt={course.title} className="w-full h-32 object-cover" />
                       <div className="p-4 flex flex-col flex-grow">
                         <h3 className="text-lg font-semibold mb-2 h-14">{course.title}</h3>
+                        <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{course.description}</p>
                         <div className="flex justify-between items-center mt-auto">
                           <Badge variant="outline">Explore</Badge>
                           <span className="text-xl font-bold text-primary">{course.price > 0 ? `$${course.price}` : 'Free'}</span>

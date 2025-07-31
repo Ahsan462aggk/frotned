@@ -81,45 +81,51 @@ const DashboardLayout = ({ children, userType }: DashboardLayoutProps) => {
           </Button>
         </div>
 
-        <nav className="p-6 space-y-2">
-          {menuItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-                  isActive 
-                    ? 'bg-primary/20 text-primary border border-primary/30' 
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                }`}
-                onClick={() => setSidebarOpen(false)}
-              >
-                <item.icon className="h-5 w-5" />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
+        <nav className="p-0 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted/30 scrollbar-track-transparent">
+  <div className="flex flex-col gap-1 p-4">
+    {menuItems.map((item, idx) => {
+      const isActive = location.pathname === item.path;
+      // Add extra margin below 'Manage Videos' if admin
+      const isManageVideos = item.label === "Manage Videos";
+      return (
+        <Link
+          key={item.path}
+          to={item.path}
+          className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+            isActive 
+              ? 'bg-primary/20 text-primary border border-primary/30' 
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          } ${isManageVideos ? 'mb-3 md:mb-4' : ''}`}
+          onClick={() => setSidebarOpen(false)}
+        >
+          <item.icon className="h-5 w-5" />
+          <span className="text-base md:text-sm">{item.label}</span>
+        </Link>
+      );
+    })}
+  </div>
+</nav>
 
-        <div className="absolute bottom-6 left-6 right-6 space-y-2">
-
-          <Button 
-            variant="ghost" 
-            onClick={() => {
-              localStorage.clear(); // Clear user session
-              toast({
-                title: "Logged Out",
-                description: "You have been successfully logged out.",
-              });
-              navigate("/");
-            }}
-            className="w-full justify-start text-muted-foreground hover:text-destructive"
-          >
-            <LogOut className="mr-3 h-5 w-5" />
-            Logout
-          </Button>
-        </div>
+{/* Divider and Logout always at bottom, clearly separated */}
+<div className="px-6 pb-6 pt-2">
+  <div className="border-t border-border/30 mb-2" />
+  <Button 
+    variant="ghost" 
+    onClick={() => {
+      localStorage.clear(); // Clear user session
+      toast({
+        title: "Logged Out",
+        description: "You have been successfully logged out.",
+      });
+      navigate("/");
+    }}
+    className="w-full justify-start text-muted-foreground hover:text-destructive text-base md:text-sm"
+    style={{ minHeight: 48 }}
+  >
+    <LogOut className="mr-3 h-5 w-5" />
+    Logout
+  </Button>
+</div>
       </div>
 
       {/* Main Content */}

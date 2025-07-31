@@ -90,8 +90,8 @@ const AdminDashboard = () => {
             </div>
             <div className="bg-white rounded-lg shadow p-6 md:col-span-2 lg:col-span-3">
               <div className="text-gray-600 text-sm">Last Updated</div>
-              <div className="text-lg">
-                {stats.last_updated || 'N/A'}
+              <div className="text-2xl font-bold text-blue-600">
+                {stats.last_updated ? new Date(stats.last_updated).toLocaleString(undefined, { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }).replace(',', ' at') : 'N/A'}
               </div>
             </div>
           </div>

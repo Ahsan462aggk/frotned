@@ -173,12 +173,25 @@ const Dashboard = () => {
 const AnalyticsDisplay = ({ analytics, onGetCertificate, isCertificateLoading }: { analytics: AnalyticsData, onGetCertificate: () => void, isCertificateLoading: boolean }) => (
   <div className="space-y-6">
     <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-      <div className="flex-1">
-        <h2 className="text-xl sm:text-2xl font-bold text-primary mb-3">{analytics.course.title}</h2>
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-lg p-4 border border-blue-100 dark:border-blue-800/30">
-          <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-sm sm:text-base font-medium">
-            {analytics.course.description}
-          </p>
+      <div className="flex-1 relative">
+        {/* Background course name watermark */}
+        <span
+          className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none z-0"
+          style={{
+            left: 0,
+            top: 0,
+            width: '100%',
+            height: '100%',
+            overflow: 'hidden',
+            textAlign: 'center',
+          }}
+        >
+          <span className="text-2xl sm:text-4xl font-bold text-gray-300 dark:text-gray-700 opacity-10 tracking-widest mb-2">Course</span>
+          <span className="text-4xl sm:text-6xl font-extrabold text-gray-300 dark:text-gray-700 opacity-10 whitespace-nowrap">{analytics.course.title}</span>
+        </span>
+        {/* Main stats and progress go here (z-10) */}
+        <div className="relative z-10">
+          {/* Add your stats/progress bars/components here as before */}
         </div>
       </div>
       <div className="flex items-center gap-2">
