@@ -213,16 +213,23 @@ const CourseDetail: FC = () => {
             formData.append('course_id', courseId);
             formData.append('qualification_certificate', enrollmentForm.qualification_certificate);
             
+            console.log('Submitting enrollment form with course ID:', courseId);
             const response = await fetchWithAuth(`/api/enrollments/apply`, { 
                 method: 'POST',
                 body: formData,
             });
+            console.log('Enrollment response status:', response.status);
             await handleApiResponse(response);
             toast.success('Enrollment application submitted successfully!');
             // setApplicationStatus('PENDING'); // This state is no longer needed
             setShowEnrollmentForm(false);
         } catch (error) {
-            toast.error('Failed to submit enrollment application.');
+            console.error('Enrollment error:', error);
+            if (error instanceof Error) {
+                toast.error(`Failed to submit enrollment application: ${error.message}`);
+            } else {
+                toast.error('Failed to submit enrollment application.');
+            }
         } finally {
             setIsSubmitting(false);
         }

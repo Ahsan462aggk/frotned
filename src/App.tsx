@@ -12,7 +12,6 @@ import ResetPassword from "./pages/auth/ResetPassword";
 import StudentDashboard from "./pages/student/Dashboard";
 import StudentCourses from "./pages/student/Courses";
 import StudentCourseDetail from "./pages/student/CourseDetail";
-import EnrollmentApplication from "./pages/student/EnrollmentApplication";
 import StudentAssignments from "./pages/student/Assignments";
 import StudentAssignmentDetail from "./pages/student/AssignmentDetail";
 import StudentQuizzes from "./pages/student/Quizzes";

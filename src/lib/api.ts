@@ -22,7 +22,7 @@ interface UserSession {
 
 // IMPORTANT: Replace this with the actual URL of your deployed Python backend.
 // It should look something like: https://your-backend-app.onrender.com/api/admin
-const API_BASE_URL = ''; // Use Vercel proxy, no need for absolute URL
+const API_BASE_URL = 'https://student-portal-lms-seven.vercel.app'; // Direct backend URL
 
 // Create axios instance with default config
 const api: AxiosInstance = axios.create({
@@ -126,6 +126,7 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}): Pro
   }
 
   const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
+  console.log('Making API request to:', fullUrl);
 
   const response = await fetch(fullUrl, { ...options, headers });
 
@@ -145,7 +146,14 @@ export const handleApiResponse = async <T>(res: Response): Promise<T> => {
             errorMessage = errorData.detail || errorData.message || errorMessage;
         } catch (e) {
             // Response body is not JSON or is empty, use the status-based message.
+            console.error('Failed to parse error response:', e);
         }
+        console.error('API Error Response:', {
+            status: res.status,
+            statusText: res.statusText,
+            url: res.url,
+            message: errorMessage
+        });
         throw new Error(errorMessage);
     }
     return res.json();
