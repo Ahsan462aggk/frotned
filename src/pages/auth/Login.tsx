@@ -46,6 +46,10 @@ const Login = () => {
       data = await response.json();
       console.log('Login Response:', data);
 
+      // Clear previous tokens before saving new session
+      localStorage.removeItem('admin_access_token');
+      localStorage.removeItem('user');
+
       // Store user session data based on role
       const { access_token, role } = data;
 

@@ -138,13 +138,6 @@ const CourseDetail: FC = () => {
                     const isUserEnrolled = !!enrolledCourse;
                     setIsEnrolled(isUserEnrolled);
                 
-                    console.log('Enrollment check:', {
-                        courseId,
-                        applicationStatus: statusResponse.status,
-                        isUserEnrolled,
-                        enrolledCourse: enrolledCourse ? 'Found' : 'Not found'
-                    });
-                
                     // If user is enrolled but application status is not APPROVED, update the status
                     if (isUserEnrolled && statusResponse.status !== 'APPROVED') {
                         console.log('User is enrolled but status was not APPROVED, updating status');
