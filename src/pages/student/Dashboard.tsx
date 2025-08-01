@@ -32,6 +32,24 @@ type AnalyticsData = {
 
 // --- MAIN DASHBOARD COMPONENT ---
 const Dashboard = () => {
+  // --- AUTH CHECK ---
+  // Ensure user is authenticated; if not, redirect to login
+  let hasToken = false;
+  try {
+    const userSessionString = localStorage.getItem('user');
+    if (userSessionString) {
+      const userSession = JSON.parse(userSessionString);
+      if (userSession && userSession.access_token) {
+        hasToken = true;
+      }
+    }
+  } catch (e) {
+    hasToken = false;
+  }
+  if (!hasToken) {
+    window.location.href = '/login';
+    return null;
+  }
   const [allAnalytics, setAllAnalytics] = useState<AnalyticsData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
