@@ -127,23 +127,40 @@ const AssignmentDetailPage = () => {
       <div className="container mx-auto px-4 py-8">
         <Card>
           <CardHeader>
-            <div className="flex justify-between items-start">
-              <div>
-                <Link to="/student/assignments" className="text-sm text-primary hover:underline mb-2 block">&larr; Back to Assignments</Link>
-                <CardTitle className="text-3xl font-bold">{assignment.title}</CardTitle>
-                <p className="text-muted-foreground">{assignment.course_title}</p>
-              </div>
-              <Badge variant={assignment.status === 'graded' ? 'default' : 'secondary'}>{assignment.status?.toUpperCase()}</Badge>
-            </div>
-            <div className="flex items-center text-sm text-muted-foreground mt-2">
-              <Calendar className="h-4 w-4 mr-2" />
-              <span>Due: {new Date(assignment.due_date)?.toLocaleDateString()}</span>
-            </div>
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 border-b pb-6 mb-6">
+  <div>
+    <Link to="/student/assignments" className="text-xs text-primary hover:underline mb-2 inline-block tracking-wide">&larr; Back to Assignments</Link>
+    <h1 className="text-4xl font-extrabold text-gradient bg-gradient-to-r from-primary to-blue-500 bg-clip-text text-transparent mb-1 leading-tight drop-shadow-sm">
+      {assignment.title}
+    </h1>
+    <div className="flex items-center gap-2 mt-1">
+      <span className="text-base font-medium text-secondary-foreground">{assignment.course_title}</span>
+      <span className="mx-2 text-muted-foreground">|</span>
+      <span className="inline-flex items-center text-sm text-muted-foreground">
+        <Calendar className="h-4 w-4 mr-1" />
+        Due: <span className="ml-1 font-medium">{new Date(assignment.due_date)?.toLocaleDateString()}</span>
+      </span>
+    </div>
+  </div>
+  <div className="flex flex-col items-end gap-2">
+    <Badge className={`px-4 py-1 text-base font-semibold tracking-wide ${assignment.status === 'graded' ? 'bg-green-100 text-green-800 border-green-300' : assignment.status === 'submitted' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' : 'bg-blue-100 text-blue-800 border-blue-300'}`}>{assignment.status?.toUpperCase()}</Badge>
+  </div>
+</div>
           </CardHeader>
           <CardContent>
-            <div className="prose max-w-none">
-              <p>{assignment.description}</p>
-            </div>
+            <Card className="mb-8 bg-muted/40 border-0 shadow-none">
+              <CardContent className="py-6 px-6 flex items-start gap-4">
+                <div>
+                  <span className="inline-flex items-center justify-center rounded-full bg-primary/10 text-primary mr-3 h-10 w-10">
+                    <AlertCircle className="h-6 w-6" />
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Assignment Description</h3>
+                  <p className="text-base text-muted-foreground whitespace-pre-line">{assignment.description}</p>
+                </div>
+              </CardContent>
+            </Card>
 
             <div className="mt-8">
               <h3 className="text-xl font-semibold mb-4">Submission</h3>

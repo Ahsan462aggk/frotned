@@ -97,6 +97,7 @@ const CourseDetail: FC = () => {
     const [purchaseInfo, setPurchaseInfo] = useState<PurchaseInfo | null>(null);
     const [isLoadingPurchaseInfo, setIsLoadingPurchaseInfo] = useState(false);
     const [paymentSubmitted, setPaymentSubmitted] = useState(false);
+    const [paymentPending, setPaymentPending] = useState(false); // new state to track payment review
     
     // Video states
     const [videos, setVideos] = useState<Video[]>([]);
@@ -107,6 +108,7 @@ const CourseDetail: FC = () => {
 
     useEffect(() => {
         const fetchCourseAndStatus = async () => {
+            let paymentStatus = null;
             if (!courseId) {
                 setError("Course ID is missing.");
                 setIsLoading(false);
@@ -131,6 +133,24 @@ const CourseDetail: FC = () => {
                 setCourse(courseResponse);
                 setApplicationStatus(statusResponse.status);
 
+                // --- Check payment proof status ---
+                try {
+                    const paymentStatusRes = await fetchWithAuth(`/api/enrollments/${courseId}/payment-proof/status`);
+                    if (paymentStatusRes.ok) {
+                        const paymentStatusData = await handleApiResponse<{ status: string }>(paymentStatusRes);
+                        paymentStatus = paymentStatusData.status;
+                        if (paymentStatus === 'pending') {
+                            setPaymentSubmitted(true);
+                            setPaymentPending(true);
+                        } else {
+                            setPaymentPending(false);
+                        }
+                    } else {
+                        setPaymentPending(false);
+                    }
+                } catch (err) {
+                    setPaymentPending(false);
+                }
                 // Always check if user is enrolled (for video access) regardless of application status
                 try {
                     const enrolledResponse = await fetchWithAuth('/api/courses/my-courses');
@@ -282,6 +302,7 @@ const CourseDetail: FC = () => {
             setShowPaymentForm(false);
             setPaymentFile(null);
             setPaymentSubmitted(true);
+            setPaymentPending(true); // set pending to true after submit
         } catch (error) {
             toast.error('Failed to submit payment proof.');
         } finally {
@@ -811,7 +832,7 @@ const CourseDetail: FC = () => {
                             </Card>
                         )}
                         
-                        {paymentSubmitted && (
+                        {(paymentSubmitted || paymentPending) && (
                             <Card className="mt-6 border-green-200 bg-green-50">
                                 <CardContent className="p-6">
                                     <div className="text-center">
@@ -821,10 +842,10 @@ const CourseDetail: FC = () => {
                                             </svg>
                                         </div>
                                         <h3 className="text-xl font-semibold text-green-800 mb-2">
-                                            Payment Proof Submitted Successfully!
+                                            Payment Proof Submitted!
                                         </h3>
                                         <p className="text-green-700 mb-4">
-                                            Your enrollment is being processed. Our admin team will review your payment proof and approve your enrollment within 24 hours.
+                                            Your payment proof has been received and is pending admin approval. You will receive an email when your enrollment is approved.
                                         </p>
                                         <div className="bg-white rounded-lg p-4 border border-green-200">
                                             <p className="text-sm text-green-600">
@@ -832,7 +853,7 @@ const CourseDetail: FC = () => {
                                             </p>
                                             <ul className="text-sm text-green-600 mt-2 space-y-1">
                                                 <li>• Admin will verify your payment proof</li>
-                                                <li>• You'll receive confirmation within 24 hours</li>
+                                                <li>• You'll receive a confirmation email when approved</li>
                                                 <li>• Once approved, you'll have full access to the course</li>
                                             </ul>
                                         </div>

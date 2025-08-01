@@ -260,7 +260,7 @@ export default function AdminCourses() {
               courses.map((course) => (
                 <TableRow key={course._id}>
                   <TableCell className="font-medium">{course.title}</TableCell>
-                  <TableCell>${course.price}</TableCell>
+                  <TableCell>PKR {course.price}</TableCell>
                   <TableCell>{course.total_enrollments}</TableCell>
                   <TableCell>
                     <span className={`px-2 py-1 rounded-full text-xs ${course.is_published ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
@@ -279,86 +279,123 @@ export default function AdminCourses() {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={(isOpen) => !isSubmitting && (isOpen ? setIsDialogOpen(true) : resetDialogState())}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>{selectedCourse ? 'Edit Course' : 'Create New Course'}</DialogTitle>
-            <DialogDescription>{selectedCourse ? 'Update the details of your course.' : 'Fill in the details to create a new course.'}</DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden border-0 shadow-2xl rounded-2xl bg-background">
+          <div className="sticky top-0 z-10 bg-card/80 backdrop-blur-md px-8 py-7 flex items-center gap-5 rounded-t-2xl border-b border-border shadow-sm">
+            <span className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-muted shadow ring-2 ring-primary/10">
+              <PlusCircle className="w-8 h-8 text-primary" />
+            </span>
+            <div>
+              <DialogTitle className="text-2xl font-extrabold tracking-tight mb-1 text-foreground">{selectedCourse ? 'Edit Course' : 'Create New Course'}</DialogTitle>
+              <DialogDescription className="text-base text-muted-foreground">{selectedCourse ? 'Update the details of your course.' : 'Fill in the details to create a new course.'}</DialogDescription>
+            </div>
+          </div>
           <FormProvider {...form}>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4 max-h-[80vh] overflow-y-auto pr-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} placeholder="e.g., Introduction to Programming" /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Textarea {...field} placeholder="Describe your course" rows={5} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="price" render={({ field }) => (<FormItem><FormLabel>Price</FormLabel><FormControl><Input type="number" {...field} placeholder="e.g., 99.99" /></FormControl><FormMessage /></FormItem>)} />
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-10 py-8 px-8 max-h-[80vh] overflow-y-auto bg-transparent">
+                {/* Basic Info Section */}
+                <div className="rounded-xl shadow-md bg-card border border-border p-6 mb-2">
+                  <div className="flex items-center gap-3 mb-6">
+                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
+                      <Pencil className="w-5 h-5 text-primary" />
+                    </span>
+                    <h2 className="text-lg font-bold text-primary tracking-wide">Basic Information</h2>
                   </div>
-                  <div className="space-y-4">
-                    <FormItem>
-                      <FormLabel>Thumbnail</FormLabel>
-                      <FormControl>
-                        <FileUploader onUpload={handleThumbnailChange} value={thumbnailFile ? [thumbnailFile] : []} maxSize={2 * 1024 * 1024} multiple={false} />
-                      </FormControl>
-                    </FormItem>
-                    {thumbnailPreview && <img src={thumbnailPreview} alt="Thumbnail preview" className="h-40 w-full rounded-md border object-cover" />}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} placeholder="e.g., Introduction to Programming" /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Textarea {...field} placeholder="Describe your course" rows={5} /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name="price" render={({ field }) => (<FormItem><FormLabel>Price</FormLabel><FormControl><Input type="number" {...field} placeholder="e.g., 99.99" /></FormControl><FormMessage /></FormItem>)} />
+                    </div>
+                    <div className="space-y-4">
+                      <FormItem>
+                        <FormLabel>Thumbnail</FormLabel>
+                        <FormControl>
+                          <FileUploader onUpload={handleThumbnailChange} value={thumbnailFile ? [thumbnailFile] : []} maxSize={2 * 1024 * 1024} multiple={false} />
+                        </FormControl>
+                      </FormItem>
+                      {thumbnailPreview && <img src={thumbnailPreview} alt="Thumbnail preview" className="h-40 w-full rounded-lg border-2 border-border shadow-lg object-cover mt-2" />}
+                    </div>
                   </div>
                 </div>
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel htmlFor="difficulty_level" className="text-right text-white">Difficulty</FormLabel>
-                  <FormField control={form.control} name="difficulty_level" render={({ field }) => (
-                    <FormControl>
-                      <select id="difficulty_level" {...field} className="p-2 border rounded col-span-3 bg-transparent text-black">
-                        <option value="Beginner">Beginner</option>
-                        <option value="Intermediate">Intermediate</option>
-                        <option value="Advanced">Advanced</option>
-                      </select>
-                    </FormControl>
-                  )} />
+                {/* Divider */}
+                <div className="flex items-center gap-2 my-2">
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-xs text-muted-foreground font-bold uppercase tracking-widest">Course Details</span>
+                  <div className="flex-1 h-px bg-border" />
                 </div>
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel htmlFor="outcomes" className="text-right">Outcomes</FormLabel>
-                  <FormField control={form.control} name="outcomes" render={({ field }) => (
-                    <FormControl>
-                      <Textarea id="outcomes" {...field} className="col-span-3" />
-                    </FormControl>
-                  )} />
+                {/* Details Section */}
+                <div className="rounded-xl shadow-md bg-card border border-border p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10">
+                          <PlusCircle className="w-4 h-4 text-primary" />
+                        </span>
+                        <h3 className="text-md font-semibold text-primary">Level & Status</h3>
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <FormLabel htmlFor="difficulty_level" className="text-right">Difficulty</FormLabel>
+                        <FormField control={form.control} name="difficulty_level" render={({ field }) => (
+                          <FormControl>
+                            <select id="difficulty_level" {...field} className="p-2 border rounded-lg col-span-3 bg-background text-foreground border-border focus:border-primary focus:ring-2 focus:ring-primary/10">
+                              <option value="Beginner">Beginner</option>
+                              <option value="Intermediate">Intermediate</option>
+                              <option value="Advanced">Advanced</option>
+                            </select>
+                          </FormControl>
+                        )} />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <FormLabel htmlFor="status" className="text-right">Status</FormLabel>
+                        <FormField control={form.control} name="status" render={({ field }) => (
+                          <FormControl>
+                            <select id="status" {...field} className="p-2 border rounded-lg col-span-3 bg-background text-foreground border-border focus:border-primary focus:ring-2 focus:ring-primary/10">
+                              <option value="draft">Draft</option>
+                              <option value="active">Active</option>
+                            </select>
+                          </FormControl>
+                        )} />
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-pink-100 dark:bg-pink-900/20">
+                          <PlusCircle className="w-4 h-4 text-pink-600 dark:text-pink-300" />
+                        </span>
+                        <h3 className="text-md font-semibold text-pink-700 dark:text-pink-300">Outcomes, Prerequisites & Curriculum</h3>
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <FormLabel htmlFor="outcomes" className="text-right">Outcomes</FormLabel>
+                        <FormField control={form.control} name="outcomes" render={({ field }) => (
+                          <FormControl>
+                            <Textarea id="outcomes" {...field} className="col-span-3 rounded-lg border-border focus:border-pink-400 focus:ring-2 focus:ring-pink-100" />
+                          </FormControl>
+                        )} />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <FormLabel htmlFor="prerequisites" className="text-right">Prerequisites</FormLabel>
+                        <FormField control={form.control} name="prerequisites" render={({ field }) => (
+                          <FormControl>
+                            <Textarea id="prerequisites" {...field} className="col-span-3 rounded-lg border-border focus:border-pink-400 focus:ring-2 focus:ring-pink-100" />
+                          </FormControl>
+                        )} />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <FormLabel htmlFor="curriculum" className="text-right">Curriculum</FormLabel>
+                        <FormField control={form.control} name="curriculum" render={({ field }) => (
+                          <FormControl>
+                            <Textarea id="curriculum" {...field} className="col-span-3 rounded-lg border-border focus:border-pink-400 focus:ring-2 focus:ring-pink-100" />
+                          </FormControl>
+                        )} />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel htmlFor="prerequisites" className="text-right">Prerequisites</FormLabel>
-                  <FormField control={form.control} name="prerequisites" render={({ field }) => (
-                    <FormControl>
-                      <Textarea id="prerequisites" {...field} className="col-span-3" />
-                    </FormControl>
-                  )} />
-                </div>
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel htmlFor="curriculum" className="text-right">Curriculum</FormLabel>
-                  <FormField control={form.control} name="curriculum" render={({ field }) => (
-                    <FormControl>
-                      <Textarea id="curriculum" {...field} className="col-span-3" />
-                    </FormControl>
-                  )} />
-                </div>
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <FormLabel htmlFor="status" className="text-right text-white">Status</FormLabel>
-                  <FormField control={form.control} name="status" render={({ field }) => (
-                    <FormControl>
-                      <select id="status" {...field} className="p-2 border rounded col-span-3 bg-transparent text-black">
-                        <option value="draft">Draft</option>
-                        <option value="active">Active</option>
-                      </select>
-                    </FormControl>
-                  )} />
-                </div>
-
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={resetDialogState} disabled={isSubmitting}>Cancel</Button>
-                  <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : (selectedCourse ? 'Save Changes' : 'Create Course')}</Button>
+                <DialogFooter className="pt-6 flex justify-end gap-4">
+                  <Button type="button" variant="outline" onClick={resetDialogState} disabled={isSubmitting} className="rounded-lg border-gray-300 text-gray-700 hover:bg-gray-50">Cancel</Button>
+                  <Button type="submit" disabled={isSubmitting} className="rounded-lg bg-primary text-primary-foreground font-semibold shadow-lg px-8 py-3 hover:bg-primary/90">
+                    {isSubmitting ? 'Saving...' : (selectedCourse ? 'Save Changes' : 'Create Course')}
+                  </Button>
                 </DialogFooter>
               </form>
             </Form>
