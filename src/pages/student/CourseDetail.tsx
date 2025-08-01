@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Loader2, AlertCircle, Upload, Play } from 'lucide-react';
+import { Loader2, AlertCircle, Upload, Play, CheckCircle, Circle } from 'lucide-react';
 import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Badge } from '@/components/ui/badge';
@@ -74,6 +74,7 @@ const CourseDetail: FC = () => {
     const navigate = useNavigate();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const paymentFileInputRef = useRef<HTMLInputElement>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
 
     // --- STATE ---
     const [course, setCourse] = useState<CourseInfo | null>(null);
@@ -185,6 +186,15 @@ const CourseDetail: FC = () => {
 
         fetchVideos();
     }, [courseId, isEnrolled]);
+
+    // Autoplay video on selection
+    useEffect(() => {
+        if (selectedVideo && videoRef.current) {
+            videoRef.current.play().catch(error => {
+                console.log("Autoplay was prevented by the browser.", error);
+            });
+        }
+    }, [selectedVideo]);
 
     const handleEnroll = () => {
         setShowEnrollmentForm(true);
@@ -324,9 +334,9 @@ const CourseDetail: FC = () => {
                 );
                 setSelectedVideo(prev => prev?.id === video.id ? { ...prev, watched: true } : prev);
                 
-                toast.success('Video marked as completed!');
+                toast.success('Video marked as completed!', { duration: 2000 });
             } catch (error) {
-                console.error('Failed to mark339 video as completed:', error);
+                console.error('Failed to mark video as completed:', error);
                 toast.error('Failed to mark video as completed.');
             } finally {
                 setCompletingVideoId(null);
@@ -353,7 +363,7 @@ const CourseDetail: FC = () => {
             );
             setSelectedVideo(prev => prev?.id === video.id ? { ...prev, watched: newWatchedState } : prev);
             
-            toast.success(newWatchedState ? 'Video marked as completed!' : 'Video marked as unwatched!');
+            toast.success(newWatchedState ? 'Video marked as completed!' : 'Video marked as unwatched!', { duration: 2000 });
         } catch (error) {
             console.error('Failed to toggle video status:', error);
             toast.error('Failed to update video status.');
@@ -415,7 +425,7 @@ const CourseDetail: FC = () => {
                             </div>
                         </div>
                         
-                        {/* Enrollment tāsApplication Section */}
+                        {/* Enrollment Application Section */}
                         {applicationStatus === 'NOT_APPLIED' && !showEnrollmentForm && (
                             <Button onClick={handleEnroll} size="lg" className="w-full">
                                 Enroll Request Application (${course.price})
@@ -853,6 +863,7 @@ const CourseDetail: FC = () => {
                                                         <div>
                                                             <div className="aspect-video bg-black rounded-t-lg">
                                                                 <video
+                                                                    ref={videoRef}
                                                                     className="w-full h-full rounded-t-lg"
                                                                     controls
                                                                     controlsList="nodownload"
@@ -869,10 +880,13 @@ const CourseDetail: FC = () => {
                                                                     Your browser does not support the video tag.
                                                                 </video>
                                                             </div>
-                                                            <div className="p-4">
-                                                                <h4 className="text-xl font-semibold mb-2">{selectedVideo.title}</h4>
-                                                                <p className="text-muted-foreground">{selectedVideo.description}</p>
-                                                                <div className="flex items-center justify-between mt-4">
+                                                            <div className="p-6 bg-background">
+                                                                <h4 className="text-2xl font-bold mb-2 text-foreground">{selectedVideo.title}</h4>
+                                                                <div className="mt-4 pt-4 border-t border-border/50">
+                                                                    <h5 className="text-sm font-semibold uppercase text-muted-foreground mb-2">Description</h5>
+                                                                    <p className="text-foreground/80 whitespace-pre-wrap">{selectedVideo.description}</p>
+                                                                </div>
+                                                                <div className="flex items-center justify-between mt-6 pt-4 border-t border-border/50">
                                                                     <Badge variant={selectedVideo.watched ? "default" : "secondary"}>
                                                                         {completingVideoId === selectedVideo.id ? (
                                                                             <>
@@ -945,69 +959,47 @@ const CourseDetail: FC = () => {
                                                         {videos.map((video) => (
                                                             <div
                                                                 key={video.id}
-                                                                onClick={() => {
-                                                                    handleVideoSelect(video);
-                                                                }}
-                                                                className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                                                                className={`flex items-center p-3 rounded-lg cursor-pointer transition-all duration-200 border-2 border-transparent ${
                                                                     selectedVideo?.id === video.id
-                                                                        ? 'bg-primary text-primary-foreground'
-                                                                        : 'bg-muted hover:bg-muted/80'
+                                                                        ? 'bg-primary/10 border-primary text-primary'
+                                                                        : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
                                                                 }`}
+                                                                onClick={() => handleVideoSelect(video)}
                                                             >
-                                                                <div className="flex items-center justify-between">
-                                                                    <div className="flex-1">
-                                                                        <h5 className="text-base font-semibold text-gray-800 line-clamp-2 leading-tight hover:text-blue-600 transition-colors duration-200">{video.title}</h5>
-                                                                        
-                                                                    
-                                                                    </div>
-                                                                    <div className="flex items-center space-x-2">
-                                                                        <span
-  className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium shadow-sm transition-colors duration-150
-    ${completingVideoId === video.id
-      ? 'bg-gray-200 text-gray-500'
-      : video.watched
-        ? 'bg-green-700 text-white border border-green-900'
-        : 'bg-blue-50 text-blue-600 border border-blue-200'}
-  `}
->
-  {completingVideoId === video.id ? (
-    <Loader2 className="h-3 w-3 animate-spin" />
-  ) : video.watched ? (
-    <svg className="h-3 w-3 mr-1" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-  ) : (
-    <svg className="h-3 w-3 mr-1" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg>
-  )}
-  {video.watched ? 'Watched' : 'Not Watched'}
-</span>
-                                                                        
-                                                                        <Button
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                handleVideoToggleWatched(video);
-                                                                            }}
-                                                                            disabled={completingVideoId === video.id}
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            className={`h-6 w-6 p-0 transition-all duration-200 ${
-                                                                                video.watched 
-                                                                                    ? "text-orange-500 hover:text-orange-600 hover:bg-orange-50" 
-                                                                                    : "text-green-500 hover:text-green-600 hover:bg-green-50"
-                                                                            }`}
-                                                                        >
-                                                                            {completingVideoId === video.id ? (
-                                                                                <Loader2 className="h-3 w-3 animate-spin" />
-                                                                            ) : video.watched ? (
-                                                                                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                                                </svg>
-                                                                            ) : (
-                                                                                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                                                                </svg>
-                                                                            )}
-                                                                        </Button>
-                                                                    </div>
+                                                                <Play className={`h-5 w-5 mr-3 flex-shrink-0 transition-colors duration-200 ${selectedVideo?.id === video.id ? 'text-primary' : ''}`} />
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className={`font-medium text-sm truncate transition-colors duration-200 ${selectedVideo?.id === video.id ? 'text-primary-foreground' : 'text-inherit'}`}>{video.title}</p>
                                                                 </div>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className={`ml-2 flex-shrink-0 px-2 py-1 h-auto text-xs rounded-full transition-all duration-200 ${
+                                                                        completingVideoId === video.id
+                                                                            ? 'bg-muted text-muted-foreground'
+                                                                            : video.watched
+                                                                            ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20'
+                                                                            : 'bg-gray-500/10 text-gray-400 hover:bg-gray-500/20'
+                                                                    }`}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleVideoToggleWatched(video);
+                                                                    }}
+                                                                    disabled={completingVideoId === video.id}
+                                                                >
+                                                                    {completingVideoId === video.id ? (
+                                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                                    ) : video.watched ? (
+                                                                        <>
+                                                                            <CheckCircle className="h-4 w-4 mr-1" />
+                                                                            <span>Watched</span>
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <Circle className="h-4 w-4 mr-1" />
+                                                                            <span>Unwatched</span>
+                                                                        </>
+                                                                    )}
+                                                                </Button>
                                                             </div>
                                                         ))}
                                                     </div>
