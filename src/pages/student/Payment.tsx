@@ -140,7 +140,13 @@ const PaymentPage = () => {
       });
 
       toast.success('Payment proof submitted successfully!');
-      setEnrollmentStatus('pending'); // Update UI to show pending status
+
+      // Re-fetch status from the server to ensure UI is consistent
+      const statusRes = await fetchWithAuth(`/api/enrollments/${courseId}/status`);
+      const statusData = await handleApiResponse<StatusResponse>(statusRes);
+      setEnrollmentStatus(statusData.status);
+      setApplicationId(statusData.application_id || null);
+
       setUploadedFile(null);
       setTransactionId('');
     } catch (err) {
