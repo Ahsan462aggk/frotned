@@ -133,22 +133,26 @@ const CourseDetail: FC = () => {
                 setCourse(courseResponse);
                 setApplicationStatus(statusResponse.status);
 
-                // --- Check payment proof status ---
-                try {
-                    const paymentStatusRes = await fetchWithAuth(`/api/enrollments/${courseId}/payment-proof/status`);
-                    if (paymentStatusRes.ok) {
-                        const paymentStatusData = await handleApiResponse<{ status: string }>(paymentStatusRes);
-                        paymentStatus = paymentStatusData.status;
-                        if (paymentStatus === 'pending') {
-                            setPaymentSubmitted(true);
-                            setPaymentPending(true);
+                // --- Check payment proof status only if application is pending ---
+                if (statusResponse.status === 'PENDING') {
+                    try {
+                        const paymentStatusRes = await fetchWithAuth(`/api/enrollments/${courseId}/payment-proof/status`);
+                        if (paymentStatusRes.ok) {
+                            const paymentStatusData = await handleApiResponse<{ status: string }>(paymentStatusRes);
+                            paymentStatus = paymentStatusData.status;
+                            if (paymentStatus === 'pending') {
+                                setPaymentSubmitted(true);
+                                setPaymentPending(true);
+                            } else {
+                                setPaymentPending(false);
+                            }
                         } else {
                             setPaymentPending(false);
                         }
-                    } else {
+                    } catch (err) {
                         setPaymentPending(false);
                     }
-                } catch (err) {
+                } else {
                     setPaymentPending(false);
                 }
                 // Always check if user is enrolled (for video access) regardless of application status
