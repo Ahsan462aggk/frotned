@@ -96,7 +96,7 @@ const CourseDetail: FC = () => {
     const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
     const [purchaseInfo, setPurchaseInfo] = useState<PurchaseInfo | null>(null);
     const [isLoadingPurchaseInfo, setIsLoadingPurchaseInfo] = useState(false);
-    const [paymentSubmitted, setPaymentSubmitted] = useState(false);
+    
     const [paymentPending, setPaymentPending] = useState(false); // new state to track payment review
     
     // Video states
@@ -107,7 +107,7 @@ const CourseDetail: FC = () => {
     const [completingVideoId, setCompletingVideoId] = useState<string | null>(null);
 
         useEffect(() => {
-        const fetchCourseAndStatus = async () => {
+                        const fetchCourseAndStatus = async () => {
             if (!courseId) {
                 setError("Course ID is missing.");
                 setIsLoading(false);
@@ -116,43 +116,34 @@ const CourseDetail: FC = () => {
 
             setIsLoading(true);
             try {
-                // Fetch course details
+                // Step 1: Fetch basic course details and enrollment status
                 const courseRes = await fetchWithAuth(`/api/courses/explore-courses/${courseId}`);
-                const courseData = await handleApiResponse<CourseInfo>(courseRes);
-                setCourse(courseData);
+                setCourse(await handleApiResponse(courseRes));
 
-                // Fetch application status
-                try {
-                    const statusRes = await fetchWithAuth(`/api/courses/my-courses/${courseId}/enrollment-status`);
-                    const statusData = await handleApiResponse<ApplicationStatusResponse>(statusRes);
-                    setApplicationStatus(statusData.status);
-                } catch (statusError) {
-                    console.log('Enrollment status endpoint failed, assuming not applied.');
-                    setApplicationStatus('NOT_APPLIED');
-                }
+                const statusRes = await fetchWithAuth(`/api/courses/my-courses/${courseId}/enrollment-status`);
+                const statusData = await handleApiResponse<ApplicationStatusResponse>(statusRes);
+                setApplicationStatus(statusData.status);
 
-                // Check payment proof status
-                try {
-                    const paymentStatusRes = await fetchWithAuth(`/api/enrollments/${courseId}/payment-proof/status`);
-                    const paymentStatusData = await handleApiResponse<{ status: string }>(paymentStatusRes);
-                    if (paymentStatusData?.status === 'pending') {
-                        setPaymentSubmitted(true);
-                        setPaymentPending(true);
+                // Step 2: If application is approved, check payment status
+                if (statusData.status === 'APPROVED') {
+                    try {
+                        const paymentStatusRes = await fetchWithAuth(`/api/enrollments/${courseId}/payment-proof/status`);
+                        const paymentStatusData = await handleApiResponse<{ status: string }>(paymentStatusRes);
+                        if (paymentStatusData?.status === 'pending') {
+                            setPaymentPending(true);
+                        }
+                    } catch (paymentError) {
+                        // A 404 is expected if no proof is submitted, so we just log it.
+                        console.log('Could not fetch payment proof status. This is expected if not yet submitted.');
+                        setPaymentPending(false);
                     }
-                } catch (err) {
-                    console.log("Payment proof not yet submitted or check failed.");
-                    setPaymentSubmitted(false);
-                    setPaymentPending(false);
                 }
 
-                // Check if user is enrolled
-                try {
-                    const enrolledCoursesRes = await fetchWithAuth('/api/courses/my-courses');
-                    const enrolledCourses = await handleApiResponse<EnrolledCourse[]>(enrolledCoursesRes);
-                    const isUserEnrolled = enrolledCourses.some((course: EnrolledCourse) => course.id === courseId);
-                    setIsEnrolled(isUserEnrolled);
-                } catch (enrollmentError) {
-                    console.error('Failed to check enrollment status:', enrollmentError);
+                // Step 3: Check if user is fully enrolled to show videos
+                const enrolledCoursesRes = await fetchWithAuth('/api/courses/my-courses');
+                const enrolledCourses = await handleApiResponse<EnrolledCourse[]>(enrolledCoursesRes);
+                if (enrolledCourses.some((c: EnrolledCourse) => c.id === courseId)) {
+                    setIsEnrolled(true);
                 }
 
             } catch (error) {
@@ -161,8 +152,9 @@ const CourseDetail: FC = () => {
                     navigate('/auth/login');
                 } else if (error instanceof Error) {
                     toast.error(`Failed to load course details: ${error.message}`);
+                } else {
+                    setError('An unexpected error occurred while loading course details.');
                 }
-                setError('Failed to load course details.');
             } finally {
                 setIsLoading(false);
             }
@@ -313,15 +305,12 @@ const CourseDetail: FC = () => {
             const data = await handleApiResponse<{ status: string; message?: string }>(res);
             toast.success(data.message || 'Payment proof submitted successfully!');
 
-            if (data && data.status === 'pending') {
-                setPaymentSubmitted(true);
+            if (data?.status === 'pending') {
                 setPaymentPending(true);
             } else {
-                // Handle cases where status might not be pending or is missing
-                // Fallback to an optimistic update, but log a warning
-                console.warn('Payment status not returned as pending in POST response. Optimistically updating UI.');
-                setPaymentSubmitted(true);
+                // Fallback for safety, though the backend should always return 'pending'
                 setPaymentPending(true);
+                console.warn('Payment status was not `pending` in the response. UI updated optimistically.');
             }
 
             setShowPaymentForm(false);
@@ -614,7 +603,7 @@ const CourseDetail: FC = () => {
                             </Card>
                         )}
                         
-                        {applicationStatus === 'APPROVED' && !isEnrolled && !showPaymentForm && !paymentSubmitted && (
+                        {applicationStatus === 'APPROVED' && !isEnrolled && !showPaymentForm && !paymentPending && (
                             <div className="text-center">
                                 <Card className="mt-6 border-green-200 bg-green-50">
                                     <CardContent className="p-6">
@@ -649,7 +638,7 @@ const CourseDetail: FC = () => {
                             </div>
                         )}
                         
-                        {applicationStatus === 'APPROVED' && !isEnrolled && showPaymentForm && !paymentSubmitted && (
+                        {applicationStatus === 'APPROVED' && !isEnrolled && showPaymentForm && !paymentPending && (
                             <Card className="mt-6 border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg">
                                 <CardHeader className="bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-t-lg">
                                     <CardTitle className="flex items-center gap-2">
@@ -855,7 +844,7 @@ const CourseDetail: FC = () => {
                             </Card>
                         )}
                         
-                        {(paymentSubmitted || paymentPending) && (
+                        {paymentPending && (
                             <Card className="mt-6 border-green-200 bg-green-50">
                                 <CardContent className="p-6">
                                     <div className="text-center">
