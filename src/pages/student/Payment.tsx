@@ -9,25 +9,7 @@ import { toast } from 'sonner';
 import { Loader2, CheckCircle, Clock, XCircle, AlertCircle } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
-
-// --- INTERFACES ---
-interface BankAccount {
-  id: string;
-  bank_name: string;
-  account_title: string;
-  account_number: string;
-  iban: string;
-}
-
-interface PurchaseInfo {
-  course_price: number;
-  bank_accounts: BankAccount[];
-}
-
-interface StatusResponse {
-  status: 'pending' | 'enrolled' | 'rejected' | 'not_applied' | 'approved';
-  application_id?: string;
-}
+import { PurchaseInfoResponse, ApplicationStatusResponse } from '../../types';
 
 interface UploadResponse {
   file_url: string;
@@ -38,7 +20,7 @@ const PaymentPage = () => {
   const navigate = useNavigate();
 
   // --- STATE ---
-  const [purchaseInfo, setPurchaseInfo] = useState<PurchaseInfo | null>(null);
+  const [purchaseInfo, setPurchaseInfo] = useState<PurchaseInfoResponse | null>(null);
   const [enrollmentStatus, setEnrollmentStatus] = useState<string | null>(null);
   const [selectedBankAccountId, setSelectedBankAccountId] = useState<string>('');
   const [transactionId, setTransactionId] = useState('');
@@ -59,14 +41,14 @@ const PaymentPage = () => {
       setLoading(true);
       try {
         const purchaseInfoRes = await fetchWithAuth(`/api/enrollments/courses/${courseId}/purchase-info`);
-        const purchaseData = await handleApiResponse<PurchaseInfo>(purchaseInfoRes);
+        const purchaseData = await handleApiResponse<PurchaseInfoResponse>(purchaseInfoRes);
         setPurchaseInfo(purchaseData);
         if (purchaseData.bank_accounts.length > 0) {
           setSelectedBankAccountId(purchaseData.bank_accounts[0].id);
         }
 
         const statusRes = await fetchWithAuth(`/api/enrollments/${courseId}/status`);
-        const statusData = await handleApiResponse<StatusResponse>(statusRes);
+        const statusData = await handleApiResponse<ApplicationStatusResponse>(statusRes);
         setEnrollmentStatus(statusData.status);
         setApplicationId(statusData.application_id || null);
       } catch (err) {
@@ -143,7 +125,7 @@ const PaymentPage = () => {
 
       // Re-fetch status from the server to ensure UI is consistent
       const statusRes = await fetchWithAuth(`/api/enrollments/${courseId}/status`);
-      const statusData = await handleApiResponse<StatusResponse>(statusRes);
+      const statusData = await handleApiResponse<ApplicationStatusResponse>(statusRes);
       setEnrollmentStatus(statusData.status);
       setApplicationId(statusData.application_id || null);
 
