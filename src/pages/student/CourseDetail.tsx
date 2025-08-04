@@ -7,8 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Loader2, AlertCircle, Upload, Play, CheckCircle, Circle } from 'lucide-react';
-import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '../../lib/api';
-import { PurchaseInfoResponse, ApplicationStatusResponse } from '../../types';
+import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Badge } from '@/components/ui/badge';
 
@@ -47,7 +46,19 @@ interface EnrolledCourse {
     expiration_date?: string;
 }
 
+interface ApplicationStatusResponse {
+    status: 'NOT_APPLIED' | 'PENDING' | 'APPROVED' | 'REJECTED';
+}
 
+interface PurchaseInfo {
+    course_title: string;
+    course_price: number;
+    bank_accounts: {
+        bank_name: string;
+        account_name: string;
+        account_number: string;
+    }[];
+}
 
 interface EnrollmentFormData {
     first_name: string;
@@ -83,7 +94,7 @@ const CourseDetail: FC = () => {
     const [showPaymentForm, setShowPaymentForm] = useState(false);
     const [paymentFile, setPaymentFile] = useState<File | null>(null);
     const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
-    const [purchaseInfo, setPurchaseInfo] = useState<PurchaseInfoResponse | null>(null);
+    const [purchaseInfo, setPurchaseInfo] = useState<PurchaseInfo | null>(null);
     const [isLoadingPurchaseInfo, setIsLoadingPurchaseInfo] = useState(false);
     const [paymentSubmitted, setPaymentSubmitted] = useState(false);
     const [paymentPending, setPaymentPending] = useState(false); // new state to track payment review
@@ -115,31 +126,34 @@ const CourseDetail: FC = () => {
                     statusResponse = await handleApiResponse<ApplicationStatusResponse>(await statusPromise);
                 } catch (statusError) {
                     console.log('Enrollment status endpoint failed, will check enrollment directly');
-                    statusResponse = { status: 'not_applied' };
+                    statusResponse = { status: 'NOT_APPLIED' };
                 }
 
                 const courseResponse = await handleApiResponse<CourseInfo>(await coursePromise);
                 setCourse(courseResponse);
                 setApplicationStatus(statusResponse.status);
 
-                // If application is approved, fetch purchase info to check payment status.
-                // This logic mirrors the working implementation in Payment.tsx.
-                if (statusResponse.status === 'approved') {
+                // --- Check payment proof status if application is approved or pending review ---
+                if (statusResponse.status === 'APPROVED' || statusResponse.status === 'PENDING') {
                     try {
-                        const purchaseInfoRes = await fetchWithAuth(`/api/enrollments/purchase-info/${courseId}`);
-                        const purchaseInfoData = await handleApiResponse<PurchaseInfoResponse>(purchaseInfoRes);
-                        if (purchaseInfoData.payment_status === 'pending') {
-                            setPaymentSubmitted(true);
-                            setPaymentPending(true);
+                        const paymentStatusRes = await fetchWithAuth(`/api/enrollments/${courseId}/payment-proof/status`);
+                        if (paymentStatusRes.ok) {
+                            const paymentStatusData = await handleApiResponse<{ status: string }>(paymentStatusRes);
+                            if (paymentStatusData.status === 'pending') {
+                                setPaymentSubmitted(true);
+                                setPaymentPending(true);
+                            }
+                        } else if (paymentStatusRes.status === 404) {
+                            // 404 means no payment proof has been submitted yet, which is not an error.
+                            console.log('Payment proof not yet submitted.');
+                            setPaymentSubmitted(false);
+                            setPaymentPending(false);
                         }
-                    } catch (error) {
-                        console.error('Failed to fetch purchase info:', error);
+                        // For other non-ok statuses, we let the default state handle it.
+                    } catch (err) {
+                        // This will catch network errors or JSON parsing errors.
+                        console.error("Could not check payment proof status, assuming it's not submitted.", err);
                     }
-                } else if (statusResponse.status === 'pending') {
-                    // This status means the initial application is pending, not the payment.
-                    // We can also assume payment is pending if the main status is PENDING.
-                    setPaymentSubmitted(true);
-                    setPaymentPending(true);
                 }
                 // Always check if user is enrolled (for video access) regardless of application status
                 try {
@@ -150,9 +164,9 @@ const CourseDetail: FC = () => {
                     setIsEnrolled(isUserEnrolled);
                 
                     // If user is enrolled but application status is not APPROVED, update the status
-                    if (isUserEnrolled && statusResponse.status !== 'approved') {
+                    if (isUserEnrolled && statusResponse.status !== 'APPROVED') {
                         console.log('User is enrolled but status was not APPROVED, updating status');
-                        setApplicationStatus('approved');
+                        setApplicationStatus('APPROVED');
                     }
                 } catch (enrollmentError) {
                     console.error('Failed to check enrollment status:', enrollmentError);
@@ -245,7 +259,7 @@ const CourseDetail: FC = () => {
             });
             await handleApiResponse(response);
             toast.success('Enrollment application submitted successfully!');
-            setApplicationStatus('pending');
+            setApplicationStatus('PENDING');
             setShowEnrollmentForm(false);
         } catch (error) {
             console.error('Enrollment error:', error);
@@ -290,9 +304,32 @@ const CourseDetail: FC = () => {
             await handleApiResponse(response);
             toast.success('Payment proof submitted successfully!');
 
-            // Optimistically update the UI. The useEffect logic will verify on next refresh.
-            setPaymentSubmitted(true);
-            setPaymentPending(true);
+            // Re-fetch the status from the server to ensure consistency, with retries
+            let success = false;
+            for (let i = 0; i < 3; i++) { // Retry up to 3 times
+                try {
+                    await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // Wait 1, 2, then 3 seconds
+                    const paymentStatusRes = await fetchWithAuth(`/api/enrollments/${courseId}/payment-proof/status`);
+                    if (paymentStatusRes.ok) {
+                        const paymentStatusData = await handleApiResponse<{ status: string }>(paymentStatusRes);
+                        if (paymentStatusData.status === 'pending') {
+                            setPaymentSubmitted(true);
+                            setPaymentPending(true);
+                            success = true;
+                            break; // Exit loop on success
+                        }
+                    }
+                } catch (err) {
+                    console.error(`Attempt ${i + 1} to re-fetch payment status failed.`, err);
+                }
+            }
+
+            if (!success) {
+                // Fallback to optimistic update if all retries fail
+                console.error("All attempts to re-fetch payment status failed. Falling back to optimistic UI update.");
+                setPaymentSubmitted(true);
+                setPaymentPending(true);
+            }
 
             setShowPaymentForm(false);
             setPaymentFile(null);
@@ -316,7 +353,7 @@ const CourseDetail: FC = () => {
         setIsLoadingPurchaseInfo(true);
         try {
             const response = await fetchWithAuth(`/api/enrollments/courses/${courseId}/purchase-info`);
-            const data = await handleApiResponse<PurchaseInfoResponse>(response);
+            const data = await handleApiResponse<PurchaseInfo>(response);
             setPurchaseInfo(data);
         } catch (error) {
             toast.error('Failed to load payment information.');
@@ -440,13 +477,13 @@ const CourseDetail: FC = () => {
                         </div>
                         
                         {/* Enrollment Application Section */}
-                        {applicationStatus === 'not_applied' && !showEnrollmentForm && (
+                        {applicationStatus === 'NOT_APPLIED' && !showEnrollmentForm && (
                             <Button onClick={handleEnroll} size="lg" className="w-full">
                                 Enroll Request Application (${course.price})
                             </Button>
                         )}
                         
-                        {applicationStatus === 'not_applied' && showEnrollmentForm && (
+                        {applicationStatus === 'NOT_APPLIED' && showEnrollmentForm && (
                             <Card className="mt-6">
                                 <CardHeader>
                                     <CardTitle>Enrollment Application</CardTitle>
@@ -563,7 +600,7 @@ const CourseDetail: FC = () => {
                             </Card>
                         )}
                         
-                        {applicationStatus === 'pending' && (
+                        {applicationStatus === 'PENDING' && (
                             <Card className="mt-6 border-yellow-200 bg-yellow-50">
                                 <CardContent className="p-6">
                                     <div className="text-center">
@@ -584,7 +621,7 @@ const CourseDetail: FC = () => {
                             </Card>
                         )}
                         
-                        {applicationStatus === 'approved' && !isEnrolled && !showPaymentForm && !paymentSubmitted && (
+                        {applicationStatus === 'APPROVED' && !isEnrolled && !showPaymentForm && !paymentSubmitted && (
                             <div className="text-center">
                                 <Card className="mt-6 border-green-200 bg-green-50">
                                     <CardContent className="p-6">
@@ -619,7 +656,7 @@ const CourseDetail: FC = () => {
                             </div>
                         )}
                         
-                        {applicationStatus === 'approved' && !isEnrolled && showPaymentForm && !paymentSubmitted && (
+                        {applicationStatus === 'APPROVED' && !isEnrolled && showPaymentForm && !paymentSubmitted && (
                             <Card className="mt-6 border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg">
                                 <CardHeader className="bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-t-lg">
                                     <CardTitle className="flex items-center gap-2">
@@ -690,7 +727,7 @@ const CourseDetail: FC = () => {
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                                 <div className="bg-white p-4 rounded-lg border border-blue-200">
                                                                     <p className="text-gray-500 text-sm font-medium mb-1">Account Name</p>
-                                                                    <p className="text-gray-800 font-semibold">{account.account_title}</p>
+                                                                    <p className="text-gray-800 font-semibold">{account.account_name}</p>
                                                                 </div>
                                                                 <div className="bg-white p-4 rounded-lg border border-blue-200">
                                                                     <p className="text-gray-500 text-sm font-medium mb-1">Account Number</p>
@@ -805,7 +842,7 @@ const CourseDetail: FC = () => {
                             </Card>
                         )}
                         
-                        {applicationStatus === 'rejected' && (
+                        {applicationStatus === 'REJECTED' && (
                             <Card className="mt-6 border-red-200 bg-red-50">
                                 <CardContent className="p-6">
                                     <div className="text-center">
