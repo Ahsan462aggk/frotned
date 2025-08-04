@@ -133,27 +133,22 @@ const CourseDetail: FC = () => {
                 setCourse(courseResponse);
                 setApplicationStatus(statusResponse.status);
 
-                // --- Check payment proof status only if application is pending ---
-                if (statusResponse.status === 'PENDING') {
+                // --- Check payment proof status if application is approved or pending review ---
+                if (statusResponse.status === 'APPROVED' || statusResponse.status === 'PENDING') {
                     try {
                         const paymentStatusRes = await fetchWithAuth(`/api/enrollments/${courseId}/payment-proof/status`);
                         if (paymentStatusRes.ok) {
                             const paymentStatusData = await handleApiResponse<{ status: string }>(paymentStatusRes);
-                            paymentStatus = paymentStatusData.status;
-                            if (paymentStatus === 'pending') {
+                            if (paymentStatusData.status === 'pending') {
                                 setPaymentSubmitted(true);
                                 setPaymentPending(true);
-                            } else {
-                                setPaymentPending(false);
                             }
-                        } else {
-                            setPaymentPending(false);
                         }
+                        // If the request fails or status is not pending, we do nothing, 
+                        // paymentPending remains false by default.
                     } catch (err) {
-                        setPaymentPending(false);
+                        console.error("Could not check payment proof status, assuming it's not submitted.", err);
                     }
-                } else {
-                    setPaymentPending(false);
                 }
                 // Always check if user is enrolled (for video access) regardless of application status
                 try {
