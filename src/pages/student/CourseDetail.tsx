@@ -303,10 +303,26 @@ const CourseDetail: FC = () => {
             });
             await handleApiResponse(response);
             toast.success('Payment proof submitted successfully!');
+
+            // Re-fetch the status from the server to ensure consistency
+            try {
+                const paymentStatusRes = await fetchWithAuth(`/api/enrollments/${courseId}/payment-proof/status`);
+                if (paymentStatusRes.ok) {
+                    const paymentStatusData = await handleApiResponse<{ status: string }>(paymentStatusRes);
+                    if (paymentStatusData.status === 'pending') {
+                        setPaymentSubmitted(true);
+                        setPaymentPending(true);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to re-fetch payment status after submission.", err);
+                // Fallback to optimistic update if re-fetch fails
+                setPaymentSubmitted(true);
+                setPaymentPending(true);
+            }
+
             setShowPaymentForm(false);
             setPaymentFile(null);
-            setPaymentSubmitted(true);
-            setPaymentPending(true); // set pending to true after submit
         } catch (error) {
             toast.error('Failed to submit payment proof.');
         } finally {
