@@ -143,10 +143,15 @@ const CourseDetail: FC = () => {
                                 setPaymentSubmitted(true);
                                 setPaymentPending(true);
                             }
+                        } else if (paymentStatusRes.status === 404) {
+                            // 404 means no payment proof has been submitted yet, which is not an error.
+                            console.log('Payment proof not yet submitted.');
+                            setPaymentSubmitted(false);
+                            setPaymentPending(false);
                         }
-                        // If the request fails or status is not pending, we do nothing, 
-                        // paymentPending remains false by default.
+                        // For other non-ok statuses, we let the default state handle it.
                     } catch (err) {
+                        // This will catch network errors or JSON parsing errors.
                         console.error("Could not check payment proof status, assuming it's not submitted.", err);
                     }
                 }
