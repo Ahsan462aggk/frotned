@@ -134,8 +134,9 @@ const CourseDetail: FC = () => {
                 setApplicationStatus(statusResponse.status);
 
                 // --- Check payment proof status if application is approved or pending review ---
-                if (statusResponse.status === 'APPROVED' || statusResponse.status === 'PENDING') {
+                if (statusResponse.status === 'APPROVED') { // Only check for payment if application is approved
                     try {
+                        // This now calls the CORRECT, newly created backend endpoint
                         const paymentStatusRes = await fetchWithAuth(`/api/enrollments/${courseId}/payment-proof/status`);
                         if (paymentStatusRes.ok) {
                             const paymentStatusData = await handleApiResponse<{ status: string }>(paymentStatusRes);
@@ -143,16 +144,18 @@ const CourseDetail: FC = () => {
                                 setPaymentSubmitted(true);
                                 setPaymentPending(true);
                             }
+                            // If status is 'approved', isEnrolled state will handle UI, so no special check needed here.
                         } else if (paymentStatusRes.status === 404) {
                             // 404 means no payment proof has been submitted yet, which is not an error.
                             console.log('Payment proof not yet submitted.');
                             setPaymentSubmitted(false);
                             setPaymentPending(false);
                         }
-                        // For other non-ok statuses, we let the default state handle it.
                     } catch (err) {
-                        // This will catch network errors or JSON parsing errors.
+                        // This will catch network errors or if the application doesn't exist yet.
                         console.error("Could not check payment proof status, assuming it's not submitted.", err);
+                        setPaymentSubmitted(false);
+                        setPaymentPending(false);
                     }
                 }
                 // Always check if user is enrolled (for video access) regardless of application status
