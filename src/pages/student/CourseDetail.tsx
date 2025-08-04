@@ -304,19 +304,29 @@ const CourseDetail: FC = () => {
             await handleApiResponse(response);
             toast.success('Payment proof submitted successfully!');
 
-            // Re-fetch the status from the server to ensure consistency
-            try {
-                const paymentStatusRes = await fetchWithAuth(`/api/enrollments/${courseId}/payment-proof/status`);
-                if (paymentStatusRes.ok) {
-                    const paymentStatusData = await handleApiResponse<{ status: string }>(paymentStatusRes);
-                    if (paymentStatusData.status === 'pending') {
-                        setPaymentSubmitted(true);
-                        setPaymentPending(true);
+            // Re-fetch the status from the server to ensure consistency, with retries
+            let success = false;
+            for (let i = 0; i < 3; i++) { // Retry up to 3 times
+                try {
+                    await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // Wait 1, 2, then 3 seconds
+                    const paymentStatusRes = await fetchWithAuth(`/api/enrollments/${courseId}/payment-proof/status`);
+                    if (paymentStatusRes.ok) {
+                        const paymentStatusData = await handleApiResponse<{ status: string }>(paymentStatusRes);
+                        if (paymentStatusData.status === 'pending') {
+                            setPaymentSubmitted(true);
+                            setPaymentPending(true);
+                            success = true;
+                            break; // Exit loop on success
+                        }
                     }
+                } catch (err) {
+                    console.error(`Attempt ${i + 1} to re-fetch payment status failed.`, err);
                 }
-            } catch (err) {
-                console.error("Failed to re-fetch payment status after submission.", err);
-                // Fallback to optimistic update if re-fetch fails
+            }
+
+            if (!success) {
+                // Fallback to optimistic update if all retries fail
+                console.error("All attempts to re-fetch payment status failed. Falling back to optimistic UI update.");
                 setPaymentSubmitted(true);
                 setPaymentPending(true);
             }
