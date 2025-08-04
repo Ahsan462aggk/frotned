@@ -301,32 +301,18 @@ const CourseDetail: FC = () => {
                 method: 'POST',
                 body: formData,
             });
-            await handleApiResponse(response);
-            toast.success('Payment proof submitted successfully!');
 
-            // Re-fetch the status from the server to ensure consistency, with retries
-            let success = false;
-            for (let i = 0; i < 3; i++) { // Retry up to 3 times
-                try {
-                    await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // Wait 1, 2, then 3 seconds
-                    const paymentStatusRes = await fetchWithAuth(`/api/enrollments/${courseId}/payment-proof/status`);
-                    if (paymentStatusRes.ok) {
-                        const paymentStatusData = await handleApiResponse<{ status: string }>(paymentStatusRes);
-                        if (paymentStatusData.status === 'pending') {
-                            setPaymentSubmitted(true);
-                            setPaymentPending(true);
-                            success = true;
-                            break; // Exit loop on success
-                        }
-                    }
-                } catch (err) {
-                    console.error(`Attempt ${i + 1} to re-fetch payment status failed.`, err);
-                }
-            }
+            // Process the response from the POST request, which should now contain the status
+            const data = await handleApiResponse<{ status: string; message?: string }>(response);
+            toast.success(data.message || 'Payment proof submitted successfully!');
 
-            if (!success) {
-                // Fallback to optimistic update if all retries fail
-                console.error("All attempts to re-fetch payment status failed. Falling back to optimistic UI update.");
+            if (data && data.status === 'pending') {
+                setPaymentSubmitted(true);
+                setPaymentPending(true);
+            } else {
+                // Handle cases where status might not be pending or is missing
+                // Fallback to an optimistic update, but log a warning
+                console.warn('Payment status not returned as pending in POST response. Optimistically updating UI.');
                 setPaymentSubmitted(true);
                 setPaymentPending(true);
             }
