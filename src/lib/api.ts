@@ -1,5 +1,4 @@
-// src/lib/api.ts
-import axios, { AxiosRequestConfig, AxiosInstance } from 'axios';
+import axios, { AxiosRequestConfig, AxiosInstance, AxiosResponse, RawAxiosRequestHeaders } from 'axios';
 
 export class UnauthorizedError extends Error {
   constructor(message = 'Unauthorized') {
@@ -8,39 +7,21 @@ export class UnauthorizedError extends Error {
   }
 }
 
-// Extend the AxiosInstance type to include our source method
-declare module 'axios' {
-  interface AxiosInstance {
-    source(): { token: any; cancel: (message?: string) => void };
-  }
-}
-
-
 interface UserSession {
   access_token: string;
 }
 
-// IMPORTANT: Replace this with the actual URL of your deployed Python backend.
-// It should look something like: https://your-backend-app.onrender.com/api/admin
-const API_BASE_URL = 'https://student-portal-lms-seven.vercel.app'; // Direct backend URL
+const API_BASE_URL = 'https://student-portal-lms-seven.vercel.app';
 
-// Create axios instance with default config
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
 });
 
-// Add cancel token source method
-api.source = () => {
-  return axios.CancelToken.source();
-};
-
-// Add request interceptor for auth token
 api.interceptors.request.use((config) => {
-  // Try to get admin token first, then fall back to user token
   let token: string | null = null;
   const adminToken = localStorage.getItem('admin_access_token');
-  
+
   if (adminToken) {
     token = adminToken;
   } else {
@@ -59,13 +40,12 @@ api.interceptors.request.use((config) => {
 
   if (token) {
     config.headers = config.headers || {};
-    config.headers.Authorization = `Bearer ${token}`;
+    (config.headers as RawAxiosRequestHeaders).Authorization = `Bearer ${token}`;
   }
 
   return config;
 });
 
-// Add response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -76,35 +56,88 @@ api.interceptors.response.use(
   }
 );
 
-// Export the configured axios instance
-export { api };
+export interface CustomResponse {
+    ok: boolean;
+    status: number;
+    statusText: string;
+    json: () => Promise<any>;
+    headers: RawAxiosRequestHeaders;
+}
 
-// Keep the existing axiosWithAuth for backward compatibility
-export const axiosWithAuth = async (
-  url: string, 
-  options: AxiosRequestConfig = {}
-): Promise<any> => {
-  try {
-    const response = await api({
-      ...options,
-      url,
-      baseURL: url.startsWith('http') ? undefined : API_BASE_URL,
-    });
-    return response;
-  } catch (error: unknown) {
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
-      throw new UnauthorizedError();
-    }
-    throw error;
-  }
+export const fetchWithAuth = async (url: string, options: AxiosRequestConfig = {}): Promise<CustomResponse> => {
+    const response: AxiosResponse = await api(url, options);
+    return {
+      ok: response.status >= 200 && response.status < 300,
+      status: response.status,
+      statusText: response.statusText,
+      json: async () => response.data,
+      headers: response.headers as RawAxiosRequestHeaders,
+    };
 };
 
-export const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
-  const headers = new Headers(options.headers);
+export const handleApiResponse = async <T>(response: CustomResponse): Promise<T> => {
+  if (!response.ok) {
+    const errorBody = await response.json();
+    const errorMessage = errorBody.message || errorBody.detail || JSON.stringify(errorBody);
+    throw new Error(errorMessage);
+  }
+  return response.json();
+};
 
-  // Try to get admin token first, then fall back to user token
+export { api };
+
+export interface CustomResponse {
+    ok: boolean;
+    status: number;
+    statusText: string;
+    json: () => Promise<any>;
+    headers: RawAxiosRequestHeaders;
+}
+
+export const fetchWithAuth = async (url: string, options: AxiosRequestConfig = {}): Promise<CustomResponse> => {
+    const response: AxiosResponse = await api(url, options);
+    return {
+      ok: response.status >= 200 && response.status < 300,
+      status: response.status,
+      statusText: response.statusText,
+      json: async () => response.data,
+      headers: response.headers as RawAxiosRequestHeaders,
+    };
+};
+
+export const handleApiResponse = async <T>(response: CustomResponse): Promise<T> => {
+  if (!response.ok) {
+    const errorBody = await response.json();
+    const errorMessage = errorBody.detail || JSON.stringify(errorBody);
+    throw new Error(errorMessage);
+  }
+  return response.json();
+};
+
+export { api };
+
+export class UnauthorizedError extends Error {
+  constructor(message = 'Unauthorized') {
+    super(message);
+    this.name = 'UnauthorizedError';
+  }
+}
+
+interface UserSession {
+  access_token: string;
+}
+
+const API_BASE_URL = 'https://student-portal-lms-seven.vercel.app';
+
+const api: AxiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true,
+});
+
+api.interceptors.request.use((config) => {
   let token: string | null = null;
   const adminToken = localStorage.getItem('admin_access_token');
+
   if (adminToken) {
     token = adminToken;
   } else {
@@ -112,7 +145,7 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}): Pro
     if (userSessionString) {
       try {
         const userSession: UserSession = JSON.parse(userSessionString);
-        if (userSession && userSession.access_token) {
+        if (userSession?.access_token) {
           token = userSession.access_token;
         }
       } catch (e) {
@@ -122,39 +155,144 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}): Pro
   }
 
   if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
+    config.headers = config.headers || {};
+    (config.headers as RawAxiosRequestHeaders).Authorization = `Bearer ${token}`;
   }
 
-  const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
-  console.log('Making API request to:', fullUrl);
+  return config;
+});
 
-  const response = await fetch(fullUrl, { ...options, headers });
-
-  if (response.status === 401) {
-    throw new UnauthorizedError();
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      throw new UnauthorizedError();
+    }
+    return Promise.reject(error);
   }
+);
 
-  return response;
+export interface CustomResponse {
+    ok: boolean;
+    status: number;
+    statusText: string;
+    json: () => Promise<any>;
+    headers: RawAxiosRequestHeaders;
+}
+
+export const fetchWithAuth = async (url: string, options: AxiosRequestConfig = {}): Promise<CustomResponse> => {
+    const response: AxiosResponse = await api(url, options);
+    return {
+      ok: response.status >= 200 && response.status < 300,
+      status: response.status,
+      statusText: response.statusText,
+      json: async () => response.data,
+      headers: response.headers as RawAxiosRequestHeaders,
+    };
 };
 
-export const handleApiResponse = async <T>(res: Response): Promise<T> => {
-    if (!res.ok) {
-        let errorMessage = `HTTP error! status: ${res.status}`;
-        try {
-            // Assume error response has a standard shape
-            const errorData: { message?: string, detail?: string } = await res.json();
-            errorMessage = errorData.detail || errorData.message || errorMessage;
-        } catch (e) {
-            // Response body is not JSON or is empty, use the status-based message.
-            console.error('Failed to parse error response:', e);
+export const handleApiResponse = async <T>(response: CustomResponse): Promise<T> => {
+  if (!response.ok) {
+    const errorBody = await response.json();
+    const errorMessage = errorBody.detail || JSON.stringify(errorBody);
+    throw new Error(errorMessage);
+  }
+  return response.json();
+};
+
+export { api };
+
+export class UnauthorizedError extends Error {
+  constructor(message = 'Unauthorized') {
+    super(message);
+    this.name = 'UnauthorizedError';
+  }
+}
+
+interface UserSession {
+  access_token: string;
+}
+
+const API_BASE_URL = 'https://student-portal-lms-seven.vercel.app';
+
+const api: AxiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true,
+});
+
+api.interceptors.request.use((config) => {
+  let token: string | null = null;
+  const adminToken = localStorage.getItem('admin_access_token');
+
+  if (adminToken) {
+    token = adminToken;
+  } else {
+    const userSessionString = localStorage.getItem('user');
+    if (userSessionString) {
+      try {
+        const userSession: UserSession = JSON.parse(userSessionString);
+        if (userSession?.access_token) {
+          token = userSession.access_token;
         }
-        console.error('API Error Response:', {
-            status: res.status,
-            statusText: res.statusText,
-            url: res.url,
-            message: errorMessage
-        });
-        throw new Error(errorMessage);
+      } catch (e) {
+        console.error("Failed to parse user session from localStorage", e);
+      }
     }
+  }
+
+  if (token) {
+    config.headers = config.headers || {};
+    (config.headers as RawAxiosRequestHeaders).Authorization = `Bearer ${token}`;
+  }
+
+  return config;
+});
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      throw new UnauthorizedError();
+    }
+    return Promise.reject(error);
+  }
+);
+
+// This is a new Response-like interface that we can build from an AxiosResponse
+// It's not a full implementation of Response, but it has the properties our app uses.
+export interface CustomResponse {
+    ok: boolean;
+    status: number;
+    statusText: string;
+    json: () => Promise<any>;
+    headers: RawAxiosRequestHeaders;
+}
+
+export const fetchWithAuth = async (url: string, options: AxiosRequestConfig = {}): Promise<CustomResponse> => {
+    const response: AxiosResponse = await api(url, options);
+    return {
+      ok: response.status >= 200 && response.status < 300,
+      status: response.status,
+      statusText: response.statusText,
+      json: async () => response.data,
+      headers: response.headers as RawAxiosRequestHeaders,
+    };
+};
+
+export const handleApiResponse = async <T>(response: CustomResponse): Promise<T> => {
+  if (!response.ok) {
+    const errorBody = await response.json();
+    const errorMessage = errorBody.detail || JSON.stringify(errorBody);
+    throw new Error(errorMessage);
+  }
+  return response.json();
+};
+
+export { api };
+        url: res.url,
+        message: errorMessage
+    });
+    throw new Error(errorMessage);
+}
     return res.json();
 };
