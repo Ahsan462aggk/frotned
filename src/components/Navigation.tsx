@@ -25,7 +25,7 @@ const Navigation = () => {
             </span>
           </div>
           <span className="text-xs text-muted-foreground font-medium tracking-wide pl-10 -mt-1">
-            Sabriy Ultrasound Training Institute
+            Sabiry Ultrasound Training Institute
           </span>
         </Link>
         

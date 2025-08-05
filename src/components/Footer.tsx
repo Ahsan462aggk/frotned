@@ -11,11 +11,11 @@ const Footer = () => {
           <div className="space-y-2 mt-3">
             <div className="flex items-center gap-2 text-muted-foreground text-sm">
               <Mail className="h-4 w-4" />
-              <span>info@suti.edu.pk</span>
+              <span>sabiryultrasound@gmail.com</span>
             </div>
             <div className="flex items-center gap-2 text-muted-foreground text-sm">
               <Phone className="h-4 w-4" />
-              <span>+92 300 1234567</span>
+              <span>+92 347 7149100</span>
             </div>
             <div className="flex items-center gap-2 text-muted-foreground text-sm">
               <MapPin className="h-4 w-4" />
@@ -24,7 +24,7 @@ const Footer = () => {
             <div className="flex items-center gap-2 text-muted-foreground text-sm">
               <a
                 href="https://wa.me/923001234567?text=Hello%20SUTI%20Support%2C%20I%20need%20help."
-                target="_blank"
+                target="03477149100"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 hover:text-green-600 transition-colors"
               >
