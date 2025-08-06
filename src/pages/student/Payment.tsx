@@ -102,7 +102,7 @@ const PaymentPage = () => {
     }
   };
 
-  const handleSubmitProof = async () => {
+    const handleSubmitProof = async () => {
     if (!uploadedFile || !transactionId) {
       toast.error('Please provide the transaction ID and select a payment proof file.');
       return;
@@ -120,7 +120,7 @@ const PaymentPage = () => {
       uploadFormData.append('file', uploadedFile);
       const uploadRes = await fetchWithAuth('/api/uploads/payment-proof', {
         method: 'POST',
-        body: uploadFormData,
+        data: uploadFormData, // Use 'data' instead of 'body' for axios
       });
       const uploadData = await handleApiResponse<UploadResponse>(uploadRes);
       const proofUrl = uploadData.file_url;
@@ -136,16 +136,28 @@ const PaymentPage = () => {
       await fetchWithAuth(`/api/enrollments/submit-payment-proof`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(submissionPayload),
+        data: submissionPayload, // Use 'data' instead of 'body' and no need to stringify
       });
 
       toast.success('Payment proof submitted successfully!');
-      setEnrollmentStatus('pending'); // Update UI to show pending status
+
+      // Re-fetch status from the server to ensure UI is consistent
+      const statusRes = await fetchWithAuth(`/api/enrollments/${courseId}/status`);
+      const statusData = await handleApiResponse<StatusResponse>(statusRes);
+      setEnrollmentStatus(statusData.status);
+      setApplicationId(statusData.application_id || null);
+
       setUploadedFile(null);
       setTransactionId('');
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to submit payment proof.';
-      toast.error(errorMessage);
+        if (err instanceof UnauthorizedError) {
+          toast.error('Session expired. Please log in again.');
+          navigate('/auth/login');
+        } else if (err instanceof Error) {
+          toast.error(err.message);
+        } else {
+          toast.error('An unexpected error occurred during submission.');
+        }
     } finally {
       setIsSubmitting(false);
     }

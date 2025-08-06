@@ -94,9 +94,11 @@ const CourseDetail: FC = () => {
     const [showPaymentForm, setShowPaymentForm] = useState(false);
     const [paymentFile, setPaymentFile] = useState<File | null>(null);
     const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+    const [paymentSubmitted, setPaymentSubmitted] = useState(false);
+    const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
     const [purchaseInfo, setPurchaseInfo] = useState<PurchaseInfo | null>(null);
     const [isLoadingPurchaseInfo, setIsLoadingPurchaseInfo] = useState(false);
-    const [paymentSubmitted, setPaymentSubmitted] = useState(false);
+    
     const [paymentPending, setPaymentPending] = useState(false); // new state to track payment review
     
     // Video states
@@ -106,9 +108,8 @@ const CourseDetail: FC = () => {
     const [isEnrolled, setIsEnrolled] = useState(false);
     const [completingVideoId, setCompletingVideoId] = useState<string | null>(null);
 
-    useEffect(() => {
-        const fetchCourseAndStatus = async () => {
-            let paymentStatus = null;
+        useEffect(() => {
+                        const fetchCourseAndStatus = async () => {
             if (!courseId) {
                 setError("Course ID is missing.");
                 setIsLoading(false);
@@ -117,63 +118,44 @@ const CourseDetail: FC = () => {
 
             setIsLoading(true);
             try {
-                // Fetch main course details and status in parallel
-                const coursePromise = fetchWithAuth(`/api/courses/explore-courses/${courseId}`);
-                
-                let statusResponse: ApplicationStatusResponse;
-                try {
-                    const statusPromise = fetchWithAuth(`/api/courses/my-courses/${courseId}/enrollment-status`);
-                    statusResponse = await handleApiResponse<ApplicationStatusResponse>(await statusPromise);
-                } catch (statusError) {
-                    console.log('Enrollment status endpoint failed, will check enrollment directly');
-                    statusResponse = { status: 'NOT_APPLIED' };
-                }
+                // Step 1: Fetch basic course details and enrollment status
+                const courseRes = await fetchWithAuth(`/api/courses/explore-courses/${courseId}`);
+                setCourse(await handleApiResponse(courseRes));
 
-                const courseResponse = await handleApiResponse<CourseInfo>(await coursePromise);
-                setCourse(courseResponse);
-                setApplicationStatus(statusResponse.status);
+                const statusRes = await fetchWithAuth(`/api/courses/my-courses/${courseId}/enrollment-status`);
+                const statusData = await handleApiResponse<ApplicationStatusResponse>(statusRes);
+                setApplicationStatus(statusData.status);
 
-                // --- Check payment proof status ---
-                try {
-                    const paymentStatusRes = await fetchWithAuth(`/api/enrollments/${courseId}/payment-proof/status`);
-                    if (paymentStatusRes.ok) {
+                // Step 2: If application is approved, check payment status
+                if (statusData.status === 'APPROVED') {
+                    try {
+                        const paymentStatusRes = await fetchWithAuth(`/api/enrollments/${courseId}/payment-proof/status`);
                         const paymentStatusData = await handleApiResponse<{ status: string }>(paymentStatusRes);
-                        paymentStatus = paymentStatusData.status;
-                        if (paymentStatus === 'pending') {
-                            setPaymentSubmitted(true);
+                        if (paymentStatusData?.status === 'pending') {
                             setPaymentPending(true);
-                        } else {
-                            setPaymentPending(false);
                         }
-                    } else {
+                    } catch (paymentError) {
+                        // A 404 is expected if no proof is submitted, so we just log it.
+                        console.log('Could not fetch payment proof status. This is expected if not yet submitted.');
                         setPaymentPending(false);
                     }
-                } catch (err) {
-                    setPaymentPending(false);
-                }
-                // Always check if user is enrolled (for video access) regardless of application status
-                try {
-                    const enrolledResponse = await fetchWithAuth('/api/courses/my-courses');
-                    const enrolledCourses = await handleApiResponse<EnrolledCourse[]>(enrolledResponse);
-                    const enrolledCourse = enrolledCourses.find(course => course.id === courseId);
-                    const isUserEnrolled = !!enrolledCourse;
-                    setIsEnrolled(isUserEnrolled);
-                
-                    // If user is enrolled but application status is not APPROVED, update the status
-                    if (isUserEnrolled && statusResponse.status !== 'APPROVED') {
-                        console.log('User is enrolled but status was not APPROVED, updating status');
-                        setApplicationStatus('APPROVED');
-                    }
-                } catch (enrollmentError) {
-                    console.error('Failed to check enrollment status:', enrollmentError);
-                    // Don't fail the entire request if enrollment check fails
                 }
 
-            } catch (err) {
-                if (err instanceof UnauthorizedError) {
-                    navigate('/login');
+                // Step 3: Check if user is fully enrolled to show videos
+                const enrolledCoursesRes = await fetchWithAuth('/api/courses/my-courses');
+                const enrolledCourses = await handleApiResponse<EnrolledCourse[]>(enrolledCoursesRes);
+                if (enrolledCourses.some((c: EnrolledCourse) => c.id === courseId)) {
+                    setIsEnrolled(true);
+                }
+
+            } catch (error) {
+                if (error instanceof UnauthorizedError) {
+                    toast.error("Session expired. Please log in.");
+                    navigate('/auth/login');
+                } else if (error instanceof Error) {
+                    toast.error(`Failed to load course details: ${error.message}`);
                 } else {
-                    setError("Failed to load course details. Please try again later.");
+                    setError('An unexpected error occurred while loading course details.');
                 }
             } finally {
                 setIsLoading(false);
@@ -181,17 +163,16 @@ const CourseDetail: FC = () => {
         };
 
         fetchCourseAndStatus();
-    }, [courseId, navigate]);
+    }, [courseId, navigate]); // This effect runs whenever courseId or navigate changes
 
-    // Fetch videos when enrolled
-    useEffect(() => {
+        useEffect(() => {
         const fetchVideos = async () => {
             if (!courseId || !isEnrolled) return;
-            
+
             setIsLoadingVideos(true);
             try {
-                const response = await fetchWithAuth(`/api/courses/my-courses/${courseId}/videos-with-checkpoint`);
-                const data = await handleApiResponse<Video[]>(response);
+                const res = await fetchWithAuth(`/api/courses/my-courses/${courseId}/videos-with-checkpoint`);
+                const data = await handleApiResponse<Video[]>(res);
                 setVideos(data);
                 if (data.length > 0) {
                     setSelectedVideo(data[0]);
@@ -204,8 +185,35 @@ const CourseDetail: FC = () => {
             }
         };
 
-        fetchVideos();
+        if (isEnrolled) {
+            fetchVideos();
+        }
     }, [courseId, isEnrolled]);
+
+    useEffect(() => {
+        const checkEnrollment = async () => {
+            if (!courseId) return;
+            
+            try {
+                const enrolledCoursesRes = await fetchWithAuth('/api/courses/my-courses');
+                const enrolledCourses = await handleApiResponse<EnrolledCourse[]>(enrolledCoursesRes);
+                const enrolledCourse = enrolledCourses.find((course: EnrolledCourse) => course.id === courseId);
+                const isUserEnrolled = !!enrolledCourse;
+                setIsEnrolled(isUserEnrolled);
+                
+                // If user is enrolled but application status is not APPROVED, update the status
+                if (isUserEnrolled && applicationStatus !== 'APPROVED') {
+                    console.log('User is enrolled but status was not APPROVED, updating status');
+                    setApplicationStatus('APPROVED');
+                }
+            } catch (enrollmentError) {
+                console.error('Failed to check enrollment status:', enrollmentError);
+                // Don't fail the entire request if enrollment check fails
+            }
+        };
+
+        checkEnrollment();
+    }, [courseId, applicationStatus]);
 
     // Autoplay video on selection
     useEffect(() => {
@@ -249,11 +257,10 @@ const CourseDetail: FC = () => {
             formData.append('course_id', courseId);
             formData.append('qualification_certificate', enrollmentForm.qualification_certificate);
             
-            const response = await fetchWithAuth(`/api/enrollments/apply`, { 
+            await fetchWithAuth(`/api/enrollments/apply`, { 
                 method: 'POST',
-                body: formData,
+                data: formData,
             });
-            await handleApiResponse(response);
             toast.success('Enrollment application submitted successfully!');
             setApplicationStatus('PENDING');
             setShowEnrollmentForm(false);
@@ -293,16 +300,25 @@ const CourseDetail: FC = () => {
             const formData = new FormData();
             formData.append('file', paymentFile);
             
-            const response = await fetchWithAuth(`/api/enrollments/${courseId}/payment-proof`, { 
+            const res = await fetchWithAuth(`/api/enrollments/${courseId}/payment-proof`, {
                 method: 'POST',
-                body: formData,
+                data: formData,
             });
-            await handleApiResponse(response);
-            toast.success('Payment proof submitted successfully!');
+            const data = await handleApiResponse<{ status: string; message?: string }>(res);
+            toast.success(data.message || 'Payment proof submitted successfully!');
+            setPaymentSubmitted(true);
+            setShowPaymentSuccess(true);
+
+            if (data?.status === 'pending') {
+                setPaymentPending(true);
+            } else {
+                // Fallback for safety, though the backend should always return 'pending'
+                setPaymentPending(true);
+                console.warn('Payment status was not `pending` in the response. UI updated optimistically.');
+            }
+
             setShowPaymentForm(false);
             setPaymentFile(null);
-            setPaymentSubmitted(true);
-            setPaymentPending(true); // set pending to true after submit
         } catch (error) {
             toast.error('Failed to submit payment proof.');
         } finally {
@@ -322,8 +338,8 @@ const CourseDetail: FC = () => {
         
         setIsLoadingPurchaseInfo(true);
         try {
-            const response = await fetchWithAuth(`/api/enrollments/courses/${courseId}/purchase-info`);
-            const data = await handleApiResponse<PurchaseInfo>(response);
+            const res = await fetchWithAuth(`/api/enrollments/courses/${courseId}/purchase-info`);
+            const data = await handleApiResponse<PurchaseInfo>(res);
             setPurchaseInfo(data);
         } catch (error) {
             toast.error('Failed to load payment information.');
@@ -591,7 +607,7 @@ const CourseDetail: FC = () => {
                             </Card>
                         )}
                         
-                        {applicationStatus === 'APPROVED' && !isEnrolled && !showPaymentForm && !paymentSubmitted && !paymentPending && (
+                        {applicationStatus === 'APPROVED' && !isEnrolled && !showPaymentForm && !paymentSubmitted && (
                             <div className="text-center">
                                 <Card className="mt-6 border-green-200 bg-green-50">
                                     <CardContent className="p-6">
@@ -626,7 +642,7 @@ const CourseDetail: FC = () => {
                             </div>
                         )}
                         
-                        {applicationStatus === 'APPROVED' && !isEnrolled && showPaymentForm && !paymentSubmitted && !paymentPending && (
+                        {applicationStatus === 'APPROVED' && !isEnrolled && showPaymentForm && !paymentSubmitted && (
                             <Card className="mt-6 border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg">
                                 <CardHeader className="bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-t-lg">
                                     <CardTitle className="flex items-center gap-2">
@@ -860,7 +876,7 @@ const CourseDetail: FC = () => {
                             </Card>
                         )}
                         
-                        {(paymentSubmitted || paymentPending) && (
+                        {paymentPending && (
                             <Card className="mt-6 border-green-200 bg-green-50">
                                 <CardContent className="p-6">
                                     <div className="text-center">
