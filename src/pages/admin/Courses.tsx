@@ -263,8 +263,8 @@ export default function AdminCourses() {
                   <TableCell>PKR {course.price}</TableCell>
                   <TableCell>{course.total_enrollments}</TableCell>
                   <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs ${course.is_published ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                      {course.is_published ? 'Published' : 'Draft'}
+                    <span className={`px-2 py-1 rounded-full text-xs ${course.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                      {course.status === 'active' ? 'Active' : course.status ? course.status.charAt(0).toUpperCase() + course.status.slice(1) : 'Draft'}
                     </span>
                   </TableCell>
                   <TableCell className="text-right space-x-2">
