@@ -10,6 +10,7 @@ import { Loader2, AlertCircle, Upload, Play, CheckCircle, Circle } from 'lucide-
 import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Badge } from '@/components/ui/badge';
+import ReactPlayer from 'react-player';
 
 // --- INTERFACES ---
 interface CourseInfo {
@@ -74,7 +75,7 @@ const CourseDetail: FC = () => {
     const navigate = useNavigate();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const paymentFileInputRef = useRef<HTMLInputElement>(null);
-    const videoRef = useRef<HTMLVideoElement>(null);
+    const videoRef = useRef<ReactPlayer>(null);
 
     // --- STATE ---
     const [course, setCourse] = useState<CourseInfo | null>(null);
@@ -214,13 +215,7 @@ const CourseDetail: FC = () => {
     }, [courseId, applicationStatus]);
 
     // Autoplay video on selection
-    useEffect(() => {
-        if (selectedVideo && videoRef.current) {
-            videoRef.current.play().catch(error => {
-                console.log("Autoplay was prevented by the browser.", error);
-            });
-        }
-    }, [selectedVideo]);
+
 
     const handleEnroll = () => {
         setShowEnrollmentForm(true);
@@ -895,23 +890,39 @@ const CourseDetail: FC = () => {
                                                     {selectedVideo ? (
                                                         <div>
                                                             <div className="aspect-video bg-black rounded-t-lg">
-                                                                <video
+                                                                <ReactPlayer
                                                                     ref={videoRef}
                                                                     className="w-full h-full rounded-t-lg"
+                                                                    url={selectedVideo.cloudinary_url}
+                                                                    playing={false} // autoplay handled manually the video
+                                                                    muted={true} // Mute to allow autoplay without user interaction
                                                                     controls
-                                                                    controlsList="nodownload"
-                                                                    src={selectedVideo.cloudinary_url}
-                                                                    poster="https://placehold.co/800x450/000000/FFFFFF?text=Video+Player"
-                                                                    onPlay={() => {
-                                                                        handleVideoPlay(selectedVideo);
+                                                                    width="100%"
+                                                                    height="100%"
+                                                                    onReady={() => {
+        console.log('ReactPlayer ready, url:', selectedVideo.cloudinary_url);
+        // Attempt to start playback; catch AbortError when component is unmounted
+        if (videoRef && videoRef.current && typeof videoRef.current.getInternalPlayer === 'function') {
+          const internal = videoRef.current.getInternalPlayer();
+          if (internal && typeof internal.play === 'function') {
+            internal.play().catch((e) => {
+              console.warn('ReactPlayer play aborted', e);
+            });
+          }
+        }
+      }}
+                                                                    onError={(e) => console.error('ReactPlayer error', e)}
+                                                                    onEnded={() => handleVideoPlay(selectedVideo)}
+                                                                    onPlay={() => handleVideoPlay(selectedVideo)} // Mark as watched on play
+                                                                    config={{
+                                                                        file: {
+                                                                            attributes: {
+                                                                                controlsList: 'nodownload',
+                                                                                playsInline: true
+                                                                            },
+                                                                        },
                                                                     }}
-                                                                    onError={(e) => {
-                                                                        console.error('Video loading error:', e);
-                                                                        toast.error('Failed to load video. Please try again.');
-                                                                    }}
-                                                                >
-                                                                    Your browser does not support the video tag.
-                                                                </video>
+                                                                />
                                                             </div>
                                                             <div className="p-6 bg-background">
                                                                 <h4 className="text-2xl font-bold mb-2 text-foreground">{selectedVideo.title}</h4>

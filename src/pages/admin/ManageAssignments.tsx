@@ -295,7 +295,7 @@ const ManageAssignments = () => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ grade: parseInt(grade), feedback })
+          data: { grade: parseInt(grade), feedback }
         }
       );
       await handleApiResponse(response);
