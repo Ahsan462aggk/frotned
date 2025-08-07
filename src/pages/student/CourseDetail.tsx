@@ -10,7 +10,6 @@ import { Loader2, AlertCircle, Upload, Play, CheckCircle, Circle } from 'lucide-
 import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Badge } from '@/components/ui/badge';
-import Hls from 'hls.js';
 
 // --- INTERFACES ---
 interface CourseInfo {
@@ -76,7 +75,6 @@ const CourseDetail: FC = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const paymentFileInputRef = useRef<HTMLInputElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
-    const hlsRef = useRef<Hls | null>(null);
 
     // --- STATE ---
     const [course, setCourse] = useState<CourseInfo | null>(null);
@@ -189,52 +187,6 @@ const CourseDetail: FC = () => {
             fetchVideos();
         }
     }, [courseId, isEnrolled]);
-
-    useEffect(() => {
-        if (selectedVideo && videoRef.current) {
-            const videoElement = videoRef.current;
-            const videoUrl = selectedVideo.cloudinary_url;
-
-            if (videoUrl.endsWith('.m3u8')) {
-                if (Hls.isSupported()) {
-                    if (hlsRef.current) {
-                        hlsRef.current.destroy();
-                    }
-                    const hls = new Hls();
-                    hlsRef.current = hls;
-                    hls.loadSource(videoUrl);
-                    hls.attachMedia(videoElement);
-                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                        videoElement.play().catch((error) => {
-                            console.log('Autoplay was prevented by the browser.', error);
-                        });
-                    });
-                    hls.on(Hls.Events.ERROR, function (event, data) {
-                        if (data.fatal) {
-                            console.error('HLS.js fatal error:', data);
-                            toast.error('A fatal error occurred while loading the video.');
-                        }
-                    });
-                } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
-                    videoElement.src = videoUrl;
-                }
-            } else {
-                // For non-HLS videos
-                if (hlsRef.current) {
-                    hlsRef.current.destroy();
-                    hlsRef.current = null;
-                }
-                videoElement.src = videoUrl;
-            }
-        }
-
-        return () => {
-            if (hlsRef.current) {
-                hlsRef.current.destroy();
-                hlsRef.current = null;
-            }
-        };
-    }, [selectedVideo]);
 
     useEffect(() => {
         const checkEnrollment = async () => {
@@ -947,11 +899,9 @@ const CourseDetail: FC = () => {
                                                                     ref={videoRef}
                                                                     className="w-full h-full rounded-t-lg"
                                                                     controls
-                                                                    muted
-                                                                    playsInline
                                                                     controlsList="nodownload"
                                                                     onContextMenu={(e) => e.preventDefault()}
-                                                                    // The src is now set dynamically via the useEffect hook to support HLS
+                                                                    src={selectedVideo.cloudinary_url}
                                                                     poster="https://placehold.co/800x450/000000/FFFFFF?text=Video+Player"
                                                                     onPlay={() => {
                                                                         handleVideoPlay(selectedVideo);
