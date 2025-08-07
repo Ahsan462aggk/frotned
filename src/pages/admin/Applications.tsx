@@ -49,7 +49,7 @@ const AdminApplications: FC = () => {
             await fetchWithAuth(`/api/admin/enrollment-applications/${applicationId}/status`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status, rejection_reason: reason }),
+                data: { status, rejection_reason: reason },
             });
             toast({ title: 'Success', description: `Application has been ${status}.` });
             fetchApplications(); // Refresh the list
