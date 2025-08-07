@@ -894,26 +894,14 @@ const CourseDetail: FC = () => {
                                                                     ref={videoRef}
                                                                     className="w-full h-full rounded-t-lg"
                                                                     url={selectedVideo.cloudinary_url}
-                                                                    playing={false} // autoplay handled manually the video
+                                                                    playing={true} // Autoplay the video
                                                                     muted={true} // Mute to allow autoplay without user interaction
                                                                     controls
                                                                     width="100%"
                                                                     height="100%"
-                                                                    onReady={() => {
-        console.log('ReactPlayer ready, url:', selectedVideo.cloudinary_url);
-        // Attempt to start playback; catch AbortError when component is unmounted
-        if (videoRef && videoRef.current && typeof videoRef.current.getInternalPlayer === 'function') {
-          const internal = videoRef.current.getInternalPlayer();
-          if (internal && typeof internal.play === 'function') {
-            internal.play().catch((e) => {
-              console.warn('ReactPlayer play aborted', e);
-            });
-          }
-        }
-      }}
+                                                                    onReady={() => console.log('ReactPlayer ready, url:', selectedVideo.cloudinary_url)}
                                                                     onError={(e) => console.error('ReactPlayer error', e)}
                                                                     onEnded={() => handleVideoPlay(selectedVideo)}
-                                                                    onPlay={() => handleVideoPlay(selectedVideo)} // Mark as watched on play
                                                                     config={{
                                                                         file: {
                                                                             attributes: {
