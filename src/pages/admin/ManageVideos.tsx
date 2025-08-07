@@ -193,11 +193,13 @@ const ManageVideos: React.FC = () => {
         // If a new file is selected, upload it to S3
         if (selectedFile) {
             // 1. Get pre-signed URL from our backend
+            console.log('Data sent to generate-video-upload-signature:', { content_type: selectedFile.type, file_name: selectedFile.name });
             const sigResponse = await fetchWithAuth('/api/admin/generate-video-upload-signature', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content_type: selectedFile.type, file_name: selectedFile.name })
+                data: { content_type: selectedFile.type, file_name: selectedFile.name }
             });
+            console.log('Response from generate-video-upload-signature:', sigResponse);
             const s3Data: S3UploadData = await handleApiResponse(sigResponse);
 
             // 2. Upload file to S3 using the pre-signed URL
@@ -236,7 +238,7 @@ const ManageVideos: React.FC = () => {
         const response = await fetchWithAuth(endpoint, {
             method: method,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(videoData),
+            data: videoData,
         });
 
         const savedVideo = await handleApiResponse(response) as Video;
