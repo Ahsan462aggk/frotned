@@ -10,7 +10,7 @@ import { Loader2, AlertCircle, Upload, Play, CheckCircle, Circle } from 'lucide-
 import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Badge } from '@/components/ui/badge';
-import ReactPlayer from 'react-player';
+import Hls from 'hls.js';
 
 // --- INTERFACES ---
 interface CourseInfo {
@@ -75,7 +75,8 @@ const CourseDetail: FC = () => {
     const navigate = useNavigate();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const paymentFileInputRef = useRef<HTMLInputElement>(null);
-    const videoRef = useRef<ReactPlayer>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const hlsRef = useRef<Hls | null>(null);
 
     // --- STATE ---
     const [course, setCourse] = useState<CourseInfo | null>(null);
@@ -190,6 +191,52 @@ const CourseDetail: FC = () => {
     }, [courseId, isEnrolled]);
 
     useEffect(() => {
+        if (selectedVideo && videoRef.current) {
+            const videoElement = videoRef.current;
+            const videoUrl = selectedVideo.cloudinary_url;
+
+            if (videoUrl.endsWith('.m3u8')) {
+                if (Hls.isSupported()) {
+                    if (hlsRef.current) {
+                        hlsRef.current.destroy();
+                    }
+                    const hls = new Hls();
+                    hlsRef.current = hls;
+                    hls.loadSource(videoUrl);
+                    hls.attachMedia(videoElement);
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                        videoElement.play().catch((error) => {
+                            console.log('Autoplay was prevented by the browser.', error);
+                        });
+                    });
+                    hls.on(Hls.Events.ERROR, function (event, data) {
+                        if (data.fatal) {
+                            console.error('HLS.js fatal error:', data);
+                            toast.error('A fatal error occurred while loading the video.');
+                        }
+                    });
+                } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+                    videoElement.src = videoUrl;
+                }
+            } else {
+                // For non-HLS videos
+                if (hlsRef.current) {
+                    hlsRef.current.destroy();
+                    hlsRef.current = null;
+                }
+                videoElement.src = videoUrl;
+            }
+        }
+
+        return () => {
+            if (hlsRef.current) {
+                hlsRef.current.destroy();
+                hlsRef.current = null;
+            }
+        };
+    }, [selectedVideo]);
+
+    useEffect(() => {
         const checkEnrollment = async () => {
             if (!courseId) return;
             
@@ -215,7 +262,13 @@ const CourseDetail: FC = () => {
     }, [courseId, applicationStatus]);
 
     // Autoplay video on selection
-
+    useEffect(() => {
+        if (selectedVideo && videoRef.current) {
+            videoRef.current.play().catch(error => {
+                console.log("Autoplay was prevented by the browser.", error);
+            });
+        }
+    }, [selectedVideo]);
 
     const handleEnroll = () => {
         setShowEnrollmentForm(true);
@@ -890,27 +943,26 @@ const CourseDetail: FC = () => {
                                                     {selectedVideo ? (
                                                         <div>
                                                             <div className="aspect-video bg-black rounded-t-lg">
-                                                                <ReactPlayer
+                                                                <video
                                                                     ref={videoRef}
                                                                     className="w-full h-full rounded-t-lg"
-                                                                    url={selectedVideo.cloudinary_url}
-                                                                    playing={true} // Autoplay the video
-                                                                    muted={true} // Mute to allow autoplay without user interaction
                                                                     controls
-                                                                    width="100%"
-                                                                    height="100%"
-                                                                    onReady={() => console.log('ReactPlayer ready, url:', selectedVideo.cloudinary_url)}
-                                                                    onError={(e) => console.error('ReactPlayer error', e)}
-                                                                    onEnded={() => handleVideoPlay(selectedVideo)}
-                                                                    config={{
-                                                                        file: {
-                                                                            attributes: {
-                                                                                controlsList: 'nodownload',
-                                                                                playsInline: true
-                                                                            },
-                                                                        },
+                                                                    muted
+                                                                    playsInline
+                                                                    controlsList="nodownload"
+                                                                    onContextMenu={(e) => e.preventDefault()}
+                                                                    // The src is now set dynamically via the useEffect hook to support HLS
+                                                                    poster="https://placehold.co/800x450/000000/FFFFFF?text=Video+Player"
+                                                                    onPlay={() => {
+                                                                        handleVideoPlay(selectedVideo);
                                                                     }}
-                                                                />
+                                                                    onError={(e) => {
+                                                                        console.error('Video loading error:', e);
+                                                                        toast.error('Failed to load video. Please try again.');
+                                                                    }}
+                                                                >
+                                                                    Your browser does not support the video tag.
+                                                                </video>
                                                             </div>
                                                             <div className="p-6 bg-background">
                                                                 <h4 className="text-2xl font-bold mb-2 text-foreground">{selectedVideo.title}</h4>
