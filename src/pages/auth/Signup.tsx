@@ -47,13 +47,14 @@ const Signup = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
+        body: {
           email: formData.email,
           password: formData.password,
-        }),
+        },
       });
-
+            
       const data = await response.json();
+      console.log('Signup response:', response.status, data);
 
       if (response.ok) {
         toast({
@@ -64,7 +65,7 @@ const Signup = () => {
       } else {
         toast({
           title: "Signup Failed",
-          description: data.message || "An error occurred during signup.",
+          description: data.detail || data.message || "An error occurred during signup.",
           variant: "destructive",
         });
       }

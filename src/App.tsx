@@ -19,6 +19,7 @@ import QuizAttempt from "./pages/student/QuizAttempt";
 import QuizResult from "./pages/student/QuizResult";
 import StudentPayment from "./pages/student/Payment";
 import MyEnrollments from "./pages/student/MyEnrollments";
+import MyCourses from "./pages/student/MyCourses";
 import StudentProfile from "./pages/student/Profile";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminCourses from './pages/admin/Courses';
@@ -55,6 +56,7 @@ const App = () => (
           <Route path="/student/courses" element={<StudentCourses />} />
           <Route path="/student/courses/:courseId" element={<StudentCourseDetail />} />
           <Route path="/student/my-courses/:courseId" element={<StudentCourseDetail />} />
+          <Route path="/student/my-courses" element={<MyCourses />} />
           <Route path="/student/assignments" element={<StudentAssignments />} />
           <Route path="/student/assignments/:courseId/:assignmentId" element={<StudentAssignmentDetail />} />
           <Route path="/student/quizzes" element={<StudentQuizzes />} />
