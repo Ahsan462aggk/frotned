@@ -40,21 +40,56 @@ const Signup = () => {
       return;
     }
 
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Password length validation
+    if (formData.password.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
+      const payload = {
+        email: formData.email.trim().toLowerCase(),
+        password: formData.password,
+      };
+
+      console.log('Sending signup request with payload:', { email: payload.email, password: '[REDACTED]' });
+
       const response = await fetch('https://student-portal-lms-seven.vercel.app/api/auth/signup', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
+        body: JSON.stringify(payload),
       });
 
-      const data = await response.json();
-      console.log('Signup response:', response.status, data);
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+      let data;
+      try {
+        data = await response.json();
+        console.log('Response data:', data);
+      } catch (jsonError) {
+        console.error('Failed to parse JSON response:', jsonError);
+        throw new Error('Invalid response format from server');
+      }
 
       if (response.ok) {
         toast({
@@ -63,9 +98,28 @@ const Signup = () => {
         });
         navigate("/login");
       } else {
+        // Enhanced error handling for 422 specifically
+        let errorMessage = "An error occurred during signup.";
+        
+        if (response.status === 422) {
+          if (data.detail && Array.isArray(data.detail)) {
+            // FastAPI validation error format
+            const validationErrors = data.detail.map((err: any) => 
+              `${err.loc?.join('.')} - ${err.msg}`
+            ).join(', ');
+            errorMessage = `Validation error: ${validationErrors}`;
+          } else if (data.detail) {
+            errorMessage = `Validation error: ${data.detail}`;
+          } else {
+            errorMessage = "Invalid data format. Please check your email and password.";
+          }
+        } else {
+          errorMessage = data.message || data.detail || errorMessage;
+        }
+
         toast({
           title: "Signup Failed",
-          description: data.detail || data.message || "An error occurred during signup.",
+          description: errorMessage,
           variant: "destructive",
         });
       }
@@ -73,7 +127,7 @@ const Signup = () => {
       console.error("Signup error:", error);
       toast({
         title: "Error",
-        description: "An unexpected error occurred. Please try again.",
+        description: error instanceof Error ? error.message : "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
     } finally {
