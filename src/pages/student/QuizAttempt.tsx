@@ -99,7 +99,7 @@ const QuizAttempt = () => {
       const res = await fetchWithAuth(`/api/student/quizzes/courses/${courseId}/quizzes/${quizId}/submissions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answers }),
+        data:{ answers },
       });
       const result: SubmissionResult = await handleApiResponse(res);
       toast.success('Quiz submitted successfully!');

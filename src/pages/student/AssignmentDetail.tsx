@@ -8,20 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Upload, Loader2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { fetchWithAuth } from "@/lib/api";
-
-const handleApiResponse = async (res: Response) => {
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(errorData.detail || `HTTP error! status: ${res.status}`);
-  }
-  const text = await res.text();
-  try {
-    return text ? JSON.parse(text) : {};
-  } catch (error) {
-    return {};
-  }
-};
+import { fetchWithAuth, handleApiResponse } from "@/lib/api";
 
 interface AssignmentDetail {
   id: string;
@@ -89,7 +76,7 @@ const AssignmentDetailPage = () => {
 
       const res = await fetchWithAuth(`/api/student/assignments/courses/${courseId}/assignments/${assignmentId}/submissions`, {
         method: 'POST',
-        body: formData,
+        data: formData,
       });
 
       const data = await handleApiResponse(res);
