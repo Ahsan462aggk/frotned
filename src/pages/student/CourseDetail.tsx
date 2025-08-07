@@ -94,8 +94,6 @@ const CourseDetail: FC = () => {
     const [showPaymentForm, setShowPaymentForm] = useState(false);
     const [paymentFile, setPaymentFile] = useState<File | null>(null);
     const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
-    const [paymentSubmitted, setPaymentSubmitted] = useState(false);
-    const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
     const [purchaseInfo, setPurchaseInfo] = useState<PurchaseInfo | null>(null);
     const [isLoadingPurchaseInfo, setIsLoadingPurchaseInfo] = useState(false);
     
@@ -306,8 +304,6 @@ const CourseDetail: FC = () => {
             });
             const data = await handleApiResponse<{ status: string; message?: string }>(res);
             toast.success(data.message || 'Payment proof submitted successfully!');
-            setPaymentSubmitted(true);
-            setShowPaymentSuccess(true);
 
             if (data?.status === 'pending') {
                 setPaymentPending(true);
@@ -348,7 +344,7 @@ const CourseDetail: FC = () => {
         }
     };
 
-        const handleShowPaymentForm = async () => {
+    const handleShowPaymentForm = async () => {
         if (!purchaseInfo) {
             await fetchPurchaseInfo();
         }
@@ -607,7 +603,7 @@ const CourseDetail: FC = () => {
                             </Card>
                         )}
                         
-                        {applicationStatus === 'APPROVED' && !isEnrolled && !showPaymentForm && !paymentSubmitted && (
+                        {applicationStatus === 'APPROVED' && !isEnrolled && !showPaymentForm && !paymentPending && (
                             <div className="text-center">
                                 <Card className="mt-6 border-green-200 bg-green-50">
                                     <CardContent className="p-6">
@@ -642,7 +638,7 @@ const CourseDetail: FC = () => {
                             </div>
                         )}
                         
-                        {applicationStatus === 'APPROVED' && !isEnrolled && showPaymentForm && !paymentSubmitted && (
+                        {applicationStatus === 'APPROVED' && !isEnrolled && showPaymentForm && !paymentPending && (
                             <Card className="mt-6 border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg">
                                 <CardHeader className="bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-t-lg">
                                     <CardTitle className="flex items-center gap-2">
@@ -828,34 +824,6 @@ const CourseDetail: FC = () => {
                             </Card>
                         )}
                         
-                                                {paymentPending && !isEnrolled && (
-                            <Card className="mt-6 border-blue-200 bg-blue-50">
-                                <CardContent className="p-6">
-                                    <div className="text-center">
-                                        <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                                            <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                        </div>
-                                        <h3 className="text-xl font-semibold text-blue-800 mb-2">
-                                            Payment Proof Submitted!
-                                        </h3>
-                                        <p className="text-blue-700 mb-4">
-                                            Your payment proof has been received and is pending admin approval. You will receive an email when your enrollment is approved.
-                                        </p>
-                                        <div className="bg-blue-100 p-4 rounded-lg text-left">
-                                            <h4 className="font-semibold text-blue-900 mb-2">What happens next?</h4>
-                                            <ul className="list-disc list-inside text-blue-800 space-y-1">
-                                                <li>Admin will verify your payment proof</li>
-                                                <li>You'll receive a confirmation email when approved</li>
-                                                <li>Once approved, you'll have full access to the course</li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
-
                         {applicationStatus === 'REJECTED' && (
                             <Card className="mt-6 border-red-200 bg-red-50">
                                 <CardContent className="p-6">
