@@ -199,6 +199,7 @@ const ManageVideos: React.FC = () => {
                 headers: { 'Content-Type': 'application/json' },
                 data: { content_type: selectedFile.type, file_name: selectedFile.name }
             });
+            
             console.log('Response from generate-video-upload-signature:', sigResponse);
             const s3Data: S3UploadData = await handleApiResponse(sigResponse);
 

@@ -202,27 +202,19 @@ const ManageAssignments = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(body)
+        data: body
       });
       
       console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-      
-      // Try to read the response body for more details
-      const responseText = await response.text();
-      let responseData;
-      try {
-        responseData = responseText ? JSON.parse(responseText) : {};
-        console.log('Response data:', responseData);
-      } catch (e) {
-        console.log('Raw response text:', responseText);
-        throw new Error(`Invalid JSON response: ${responseText}`);
-      }
-      
-      if (!response.ok) {
+      console.log('Response headers:', response.headers);
+
+      const responseData = response.data;
+      console.log('Response data:', responseData);
+
+      if (response.status >= 400) {
         throw new Error(responseData.detail || responseData.message || `HTTP error! Status: ${response.status}`);
       }
-      
+
       console.log('API Response:', responseData);
       
       toast.success(`Assignment ${editingAssignment ? 'updated' : 'created'} successfully!`);
