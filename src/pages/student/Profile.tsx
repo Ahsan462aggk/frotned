@@ -70,10 +70,10 @@ const Profile = () => {
       const response = await fetchWithAuth('/api/profile/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        data: {
           full_name: profileData.fullName,
           bio: profileData.bio,
-        }),
+        },
       });
       const updatedProfile = await response.json();
       
@@ -134,7 +134,10 @@ const Profile = () => {
     try {
       const uploadResponse = await fetchWithAuth('/api/profile/profile/avatar', {
         method: 'POST',
-        body: formData,
+        data: formData,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
       await uploadResponse.json();
       toast({
