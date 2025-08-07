@@ -134,11 +134,17 @@ const ManageQuizzes: React.FC = () => {
     const method = currentQuiz.id ? 'PUT' : 'POST';
     const url = currentQuiz.id ? `/api/admin/quizzes/${currentQuiz.id}` : '/api/admin/quizzes';
 
+    const payload = {
+      ...currentQuiz,
+      course_id: selectedCourseId,
+      due_date: currentQuiz.due_date ? new Date(currentQuiz.due_date).toISOString() : null,
+    };
+
     try {
       const response = await fetchWithAuth(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(currentQuiz),
+        data: payload,
       });
 
       await handleApiResponse(response);
