@@ -151,9 +151,13 @@ const PaymentStatusCard: FC<{
                 return;
             }
 
-            setIsLoadingSecureVideo(true);
+            // Show video immediately with original URL for better UX
+            setSecureVideoUrl(selectedVideo.cloudinary_url);
+            setIsLoadingSecureVideo(false);
+
+            // Then work on security in background
             try {
-                // Step 1: Create a secure, obfuscated request
+                // Step 1: Create a secure, obfuscated request in background
                 const obfuscatedParams = btoa(`${selectedVideo.id}_${Date.now()}_${Math.random()}`);
                 const secureHeaders = {
                     'X-Video-Access': obfuscatedParams,
@@ -162,42 +166,44 @@ const PaymentStatusCard: FC<{
                     'Pragma': 'no-cache'
                 };
 
-                // Step 2: Fetch video as blob to hide URL from network tab
-                const videoResponse = await fetch(selectedVideo.cloudinary_url, {
-                    method: 'GET',
-                    headers: secureHeaders,
-                    cache: 'no-cache'
-                });
+                // Step 2: Fetch video as blob in background (non-blocking)
+                setTimeout(async () => {
+                    try {
+                        const videoResponse = await fetch(selectedVideo.cloudinary_url, {
+                            method: 'GET',
+                            headers: secureHeaders,
+                            cache: 'no-cache'
+                        });
 
-                if (!videoResponse.ok) {
-                    throw new Error('Failed to load video content');
-                }
+                        if (videoResponse.ok) {
+                            // Step 3: Convert to blob and create object URL
+                            const videoBlob = await videoResponse.blob();
+                            const blobUrl = URL.createObjectURL(videoBlob);
+                            
+                            // Step 4: Replace with secure blob URL after 2 seconds
+                            setTimeout(() => {
+                                setVideoBlob(blobUrl);
+                                setSecureVideoUrl(blobUrl);
+                            }, 2000);
 
-                // Step 3: Convert to blob and create object URL
-                const videoBlob = await videoResponse.blob();
-                const blobUrl = URL.createObjectURL(videoBlob);
-                
-                // Step 4: Store blob URL (this hides the real URL completely)
-                setVideoBlob(blobUrl);
-                setSecureVideoUrl(blobUrl);
-
-                // Step 5: Add additional obfuscation layers
-                setTimeout(() => {
-                    // Periodically refresh the blob URL to prevent caching
-                    if (videoBlob) {
-                        const newBlobUrl = URL.createObjectURL(videoBlob);
-                        setSecureVideoUrl(newBlobUrl);
-                        URL.revokeObjectURL(blobUrl);
+                            // Step 5: Periodic refresh for additional security
+                            setInterval(() => {
+                                if (videoBlob) {
+                                    const newBlobUrl = URL.createObjectURL(videoBlob);
+                                    setSecureVideoUrl(newBlobUrl);
+                                    URL.revokeObjectURL(blobUrl);
+                                }
+                            }, 60000); // Refresh every minute
+                        }
+                    } catch (error) {
+                        console.log('Background security processing failed, using direct URL');
                     }
-                }, 30000); // Refresh every 30 seconds
+                }, 1000); // Start background processing after 1 second
 
             } catch (error) {
-                console.error('Error loading secure video:', error);
-                toast.error('Failed to load video. Please try again.');
-                setSecureVideoUrl(null);
-                setVideoBlob(null);
-            } finally {
-                setIsLoadingSecureVideo(false);
+                console.error('Error in secure video setup:', error);
+                // Fallback to direct URL if security setup fails
+                setSecureVideoUrl(selectedVideo.cloudinary_url);
             }
         };
 
