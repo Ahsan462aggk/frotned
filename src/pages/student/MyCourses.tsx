@@ -143,14 +143,16 @@ const MyCourses = () => {
                     
                     {/* Course Content */}
                     <CardContent className="p-5 flex flex-col flex-grow">
-                      <h3 className="text-3xl font-extrabold mb-2 text-foreground line-clamp-2 drop-shadow-md">{course.title}</h3>
-                      
-                      <div className="flex items-center text-lg font-semibold text-foreground mb-3">
-                        <User className="h-4 w-4 mr-1" />
-                        <span>{course.instructor || 'Instructor'}</span>
+                      {/* Video Checkpoint Section */}
+                      <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                        <div className="flex items-center mb-2">
+                          <Play className="h-5 w-5 text-blue-600 mr-2" />
+                          <span className="text-lg font-semibold text-blue-800">Video Checkpoint</span>
+                        </div>
+                        <p className="text-blue-700 text-sm">
+                          Access your course videos and track your learning progress through interactive video checkpoints.
+                        </p>
                       </div>
-                      
-                      <p className="text-gray-600 text-sm mb-4 line-clamp-3 flex-grow">{course.description}</p>
                       
                       {/* Progress Section Removed */}
                       

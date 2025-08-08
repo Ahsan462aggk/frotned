@@ -110,10 +110,6 @@ const PaymentStatusCard: FC<{
     selectedVideo,
     isLoadingVideos
 }) => {
-    const [videoBlob, setVideoBlob] = useState<string | null>(null);
-    const [secureVideoUrl, setSecureVideoUrl] = useState<string | null>(null);
-    const [isLoadingSecureVideo, setIsLoadingSecureVideo] = useState(false);
-
     useEffect(() => {
         const fetchVideos = async () => {
             if (!courseId || !isEnrolled || paymentStatus !== 'approved') return;
@@ -125,6 +121,17 @@ const PaymentStatusCard: FC<{
                 setVideos(data);
                 if (data.length > 0) {
                     setSelectedVideo(data[0]);
+                    
+                    // Auto-scroll to course videos section when coming from My Courses
+                    setTimeout(() => {
+                        const videoSection = document.getElementById('course-videos-section');
+                        if (videoSection) {
+                            videoSection.scrollIntoView({ 
+                                behavior: 'smooth', 
+                                block: 'start' 
+                            });
+                        }
+                    }, 500); // Small delay to ensure content is rendered
                 }
             } catch (error) {
                 console.error('Failed to fetch videos:', error);
@@ -138,84 +145,6 @@ const PaymentStatusCard: FC<{
             fetchVideos();
         }
     }, [paymentStatus, courseId, isEnrolled, setVideos, setSelectedVideo, setIsLoadingVideos]);
-
-    useEffect(() => {
-        const loadSecureVideo = async () => {
-            if (!selectedVideo) {
-                // Clean up previous blob URL
-                if (videoBlob) {
-                    URL.revokeObjectURL(videoBlob);
-                }
-                setSecureVideoUrl(null);
-                setVideoBlob(null);
-                return;
-            }
-
-            // Show video immediately with original URL for better UX
-            setSecureVideoUrl(selectedVideo.cloudinary_url);
-            setIsLoadingSecureVideo(false);
-
-            // Then work on security in background
-            try {
-                // Step 1: Create a secure, obfuscated request in background
-                const obfuscatedParams = btoa(`${selectedVideo.id}_${Date.now()}_${Math.random()}`);
-                const secureHeaders = {
-                    'X-Video-Access': obfuscatedParams,
-                    'X-Timestamp': Date.now().toString(),
-                    'Cache-Control': 'no-cache, no-store, must-revalidate',
-                    'Pragma': 'no-cache'
-                };
-
-                // Step 2: Fetch video as blob in background (non-blocking)
-                setTimeout(async () => {
-                    try {
-                        const videoResponse = await fetch(selectedVideo.cloudinary_url, {
-                            method: 'GET',
-                            headers: secureHeaders,
-                            cache: 'no-cache'
-                        });
-
-                        if (videoResponse.ok) {
-                            // Step 3: Convert to blob and create object URL
-                            const videoBlob = await videoResponse.blob();
-                            const blobUrl = URL.createObjectURL(videoBlob);
-                            
-                            // Step 4: Replace with secure blob URL after 2 seconds
-                            setTimeout(() => {
-                                setVideoBlob(blobUrl);
-                                setSecureVideoUrl(blobUrl);
-                            }, 2000);
-
-                            // Step 5: Periodic refresh for additional security
-                            setInterval(() => {
-                                if (videoBlob) {
-                                    const newBlobUrl = URL.createObjectURL(videoBlob);
-                                    setSecureVideoUrl(newBlobUrl);
-                                    URL.revokeObjectURL(blobUrl);
-                                }
-                            }, 60000); // Refresh every minute
-                        }
-                    } catch (error) {
-                        console.log('Background security processing failed, using direct URL');
-                    }
-                }, 1000); // Start background processing after 1 second
-
-            } catch (error) {
-                console.error('Error in secure video setup:', error);
-                // Fallback to direct URL if security setup fails
-                setSecureVideoUrl(selectedVideo.cloudinary_url);
-            }
-        };
-
-        loadSecureVideo();
-
-        // Cleanup function
-        return () => {
-            if (videoBlob) {
-                URL.revokeObjectURL(videoBlob);
-            }
-        };
-    }, [selectedVideo]);
 
     switch (paymentStatus) {
         case 'active':
@@ -250,8 +179,46 @@ const PaymentStatusCard: FC<{
             );
         case 'approved':
             return (
-                <div className="mt-8">
+                <div className="mt-8" id="course-videos-section">
                     <h3 className="text-2xl font-bold mb-4">Course Videos</h3>
+                    
+                    {/* Security Information Notice */}
+                    <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-200 rounded-xl shadow-sm">
+                        <div className="flex items-start space-x-3">
+                            <div className="flex-shrink-0">
+                                <svg className="w-6 h-6 text-amber-600 mt-0.5" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 16h2v2h-2v-2zm0-6h2v4h-2v-4z"/>
+                                </svg>
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="text-lg font-semibold text-amber-800 mb-2 flex items-center">
+                                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6z"/>
+                                    </svg>
+                                    Video Security Notice
+                                </h4>
+                                <div className="text-amber-700 space-y-2">
+                                    <p className="text-sm leading-relaxed">
+                                        <strong>Important:</strong> For security and content protection, the following actions during the entire video session (including when paused) will result in automatic logout:
+                                    </p>
+                                    <ul className="text-sm space-y-1 ml-4 list-disc">
+                                        <li><strong>Switching browser tabs</strong> or minimizing the window</li>
+                                        <li><strong>Accessing browser extensions</strong> or moving mouse to extension icons</li>
+                                        <li><strong>Clicking outside the browser</strong> or losing focus</li>
+                                        <li><strong>Resizing the browser window</strong> significantly</li>
+                                    </ul>
+                                    <div className="mt-3 p-3 bg-red-100 rounded-lg border border-red-300">
+                                        <p className="text-sm text-red-800 flex items-center">
+                                            <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 16h2v2h-2v-2zm0-6h2v4h-2v-4z"/>
+                                            </svg>
+                                            <span><strong>Critical:</strong> Security protection is active for the entire session. Any attempt to navigate away will result in immediate logout.</span>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     
                     {isLoadingVideos ? (
                         <div className="flex items-center justify-center h-64">
@@ -268,53 +235,248 @@ const PaymentStatusCard: FC<{
                                         {selectedVideo ? (
                                             <div>
                                                 <div className="aspect-video bg-black rounded-t-lg relative">
-                                                    {isLoadingSecureVideo ? (
-                                                        <div className="w-full h-full rounded-t-lg bg-gray-900 flex items-center justify-center">
-                                                            <div className="text-center">
-                                                                <Loader2 className="h-8 w-8 animate-spin text-white mx-auto mb-2" />
-                                                                <p className="text-white text-sm">Securing video...</p>
-                                                            </div>
-                                                        </div>
-                                                    ) : secureVideoUrl ? (
-                                                        <video
-                                                            ref={videoRef}
-                                                            className="w-full h-full rounded-t-lg video-protected"
-                                                            controls
-                                                            controlsList="nodownload noremoteplayback noplaybackrate"
-                                                            disablePictureInPicture
-                                                            disableRemotePlayback
-                                                            onContextMenu={(e) => e.preventDefault()}
-                                                            onDragStart={(e) => e.preventDefault()}
-                                                            src={secureVideoUrl}
-                                                            poster="https://placehold.co/800x450/000000/FFFFFF?text=Secure+Video+Player"
-                                                            onPlay={() => handleVideoPlay(selectedVideo)}
-                                                            onError={(e) => {
-                                                                console.error('Secure video loading error:', e);
-                                                                toast.error('Failed to load secure video. Please try again.');
-                                                            }}
-                                                            onLoadStart={() => {
-                                                                // Enhanced security for blob URLs
-                                                                const video = document.querySelector('.video-protected') as HTMLVideoElement;
-                                                                if (video) {
-                                                                    video.crossOrigin = 'anonymous';
-                                                                    // Add additional security attributes
-                                                                    video.setAttribute('data-secure', 'true');
-                                                                    video.setAttribute('data-protected', Date.now().toString());
-                                                                    // Add selectstart prevention via event listener
-                                                                    video.addEventListener('selectstart', (e) => e.preventDefault());
+                                                    <video
+                                                        className="w-full h-full rounded-t-lg video-protected"
+                                                        controls
+                                                        autoPlay
+                                                        controlsList="nodownload noremoteplayback noplaybackrate"
+                                                        allowFullScreen
+                                                        disablePictureInPicture
+                                                        disableRemotePlayback
+                                                        onContextMenu={(e) => e.preventDefault()}
+                                                        onSelectStart={(e) => e.preventDefault()}
+                                                        onDragStart={(e) => e.preventDefault()}
+                                                        src={selectedVideo.cloudinary_url}
+                                                        poster="https://placehold.co/800x450/000000/FFFFFF?text=Video+Player"
+                                                        onPlay={(e) => {
+                                                            handleVideoPlay(selectedVideo);
+                                                            
+                                                            // Targeted video security - only tab switching and extension access
+                                                            console.log('Video security activated: tab switching and extension access detection');
+                                                            
+                                                            const videoElement = e.target as HTMLVideoElement;
+                                                            let securityActive = true;
+                                                            
+                                                            const handleSecurityViolation = async () => {
+                                                                if (!securityActive) return; // Prevent multiple triggers
+                                                                
+                                                                console.warn('Security violation detected - showing warning');
+                                                                securityActive = false;
+                                                                
+                                                                // Show immediate security warning popup
+                                                                const securityAlert = document.createElement('div');
+                                                                securityAlert.style.cssText = `
+                                                                    position: fixed;
+                                                                    top: 50%;
+                                                                    left: 50%;
+                                                                    transform: translate(-50%, -50%);
+                                                                    background: linear-gradient(135deg, #ef4444, #dc2626);
+                                                                    color: white;
+                                                                    padding: 30px 40px;
+                                                                    border-radius: 15px;
+                                                                    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+                                                                    z-index: 10000;
+                                                                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                                                                    font-size: 18px;
+                                                                    font-weight: 600;
+                                                                    text-align: center;
+                                                                    min-width: 400px;
+                                                                    border: 3px solid #fca5a5;
+                                                                    animation: securityPulse 0.5s ease-in-out;
+                                                                `;
+                                                                
+                                                                securityAlert.innerHTML = `
+                                                                    <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 15px;">
+                                                                        <svg style="width: 32px; height: 32px; margin-right: 12px;" fill="currentColor" viewBox="0 0 24 24">
+                                                                            <path d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 16h2v2h-2v-2zm0-6h2v4h-2v-4z"/>
+                                                                        </svg>
+                                                                        <span style="font-size: 24px; font-weight: 700;">SECURITY VIOLATION</span>
+                                                                    </div>
+                                                                    <div style="margin-bottom: 15px; font-size: 16px; line-height: 1.4;">
+                                                                        Unauthorized access attempt detected!<br>
+                                                                        You will be logged out for security reasons.
+                                                                    </div>
+                                                                    <div style="font-size: 14px; opacity: 0.9;">
+                                                                        This action has been recorded for security purposes.
+                                                                    </div>
+                                                                `;
+                                                                
+                                                                // Add CSS animation
+                                                                const style = document.createElement('style');
+                                                                style.textContent = `
+                                                                    @keyframes securityPulse {
+                                                                        0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+                                                                        50% { transform: translate(-50%, -50%) scale(1.05); }
+                                                                        100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+                                                                    }
+                                                                `;
+                                                                document.head.appendChild(style);
+                                                                document.body.appendChild(securityAlert);
+                                                                
+                                                                // Show toast as well
+                                                                toast.error('Security violation detected! Logging out...', { duration: 3000 });
+                                                                
+                                                                // Wait 3 seconds before logout
+                                                                setTimeout(async () => {
+                                                                    // Remove the popup
+                                                                    document.body.removeChild(securityAlert);
+                                                                    document.head.removeChild(style);
+                                                                    
+                                                                    try {
+                                                                        // Call logout API endpoint
+                                                                        await fetchWithAuth('/api/auth/logout', {
+                                                                            method: 'POST'
+                                                                        });
+                                                                        console.log('Logout API called successfully');
+                                                                    } catch (error) {
+                                                                        console.error('Failed to call logout API:', error);
+                                                                    }
+                                                                    
+                                                                    // Clear authentication data
+                                                                    localStorage.removeItem('token');
+                                                                    localStorage.removeItem('user');
+                                                                    sessionStorage.clear();
+                                                                    
+                                                                    // Final logout message
+                                                                    toast.success('You have been logged out for security reasons.');
+                                                                    
+                                                                    // Redirect to login
+                                                                    setTimeout(() => {
+                                                                        window.location.href = '/login';
+                                                                    }, 500);
+                                                                }, 3000); // 3 second delay
+                                                             };
+
+                                                             // 1. Tab switching detection - Active during entire video session (including pause)
+                                                             const handleTabVisibilityChange = () => {
+                                                                 if (securityActive && !videoElement.ended) {
+                                                                     if (document.hidden || document.visibilityState === 'hidden') {
+                                                                         console.warn('Tab switch detected during video session (including pause)');
+                                                                         handleSecurityViolation();
+                                                                     }
+                                                                 }
+                                                             };
+
+                                                             // 2. Extension icon access detection - Active during entire video session (including pause)
+                                                             const detectExtensionAccess = () => {
+                                                                 if (securityActive && !videoElement.ended) {
+                                                                     let extensionAreaHovered = false;
+                                                                     let lastMousePosition = { x: 0, y: 0 };
+                                                                    
+                                                                    // Detect mouse movement to browser extension icon area
+                                                                    const handleMouseMove = (e: MouseEvent) => {
+                                                                        lastMousePosition = { x: e.clientX, y: e.clientY };
+                                                                        
+                                                                        // Extension icons are typically in the top-right area of browser
+                                                                        // Top 50px and right 150px area where extensions are located
+                                                                        const isInExtensionArea = e.clientY < 50 && e.clientX > (window.innerWidth - 150);
+                                                                        
+                                                                        if (isInExtensionArea && !extensionAreaHovered) {
+                                                                            extensionAreaHovered = true;
+                                                                            console.warn('Mouse moved to extension icon area - triggering logout');
+                                                                            
+                                                                            // Immediate logout when mouse enters extension icon area
+                                                                            handleSecurityViolation();
+                                                                        }
+                                                                        
+                                                                        // Also detect general toolbar area (broader detection)
+                                                                        if (e.clientY < 70 && !isInExtensionArea) {
+                                                                            console.warn('Mouse moved to browser toolbar area - immediate logout');
+                                                                            // Immediate logout for any toolbar area access
+                                                                            handleSecurityViolation();
+                                                                        }
+                                                                    };
+                                                                    
+                                                                    // Detect focus loss (when extension popup opens)
+                                                                    const handleFocusLoss = () => {
+                                                                        if (securityActive && !document.hasFocus()) {
+                                                                            console.warn('Focus lost - immediate logout');
+                                                                            handleSecurityViolation();
+                                                                        }
+                                                                    };
+                                                                    
+                                                                    // Monitor window size changes (extension popups can change window size)
+                                                                    const initialWindowSize = { width: window.innerWidth, height: window.innerHeight };
+                                                                    const handleWindowResize = () => {
+                                                                        if (securityActive) {
+                                                                            const widthChange = Math.abs(window.innerWidth - initialWindowSize.width);
+                                                                            const heightChange = Math.abs(window.innerHeight - initialWindowSize.height);
+                                                                            
+                                                                            // If window size changed significantly, immediate logout
+                                                                            if (widthChange > 20 || heightChange > 20) {
+                                                                                console.warn('Window size changed - immediate logout');
+                                                                                handleSecurityViolation();
+                                                                            }
+                                                                        }
+                                                                    };
+                                                                    
+                                                                    // Add all event listeners
+                                                                    document.addEventListener('mousemove', handleMouseMove);
+                                                                    window.addEventListener('blur', handleFocusLoss);
+                                                                    window.addEventListener('resize', handleWindowResize);
+                                                                    
+                                                                    // Monitor focus changes more aggressively
+                                                                    const focusMonitor = setInterval(() => {
+                                                                        if (securityActive && !document.hasFocus()) {
+                                                                            const wasInExtensionArea = lastMousePosition.y < 70;
+                                                                            if (wasInExtensionArea) {
+                                                                                console.warn('Focus monitoring detected extension interaction');
+                                                                                handleSecurityViolation();
+                                                                            }
+                                                                        }
+                                                                    }, 200); // Check every 200ms
+                                                                    
+                                                                    // Cleanup listeners after 30 seconds
+                                                                    setTimeout(() => {
+                                                                        document.removeEventListener('mousemove', handleMouseMove);
+                                                                        window.removeEventListener('blur', handleFocusLoss);
+                                                                        window.removeEventListener('resize', handleWindowResize);
+                                                                        clearInterval(focusMonitor);
+                                                                    }, 30000);
                                                                 }
-                                                            }}
-                                                        >
-                                                            Your browser does not support the video tag.
-                                                        </video>
-                                                    ) : (
-                                                        <div className="w-full h-full rounded-t-lg bg-gray-900 flex items-center justify-center">
-                                                            <div className="text-center">
-                                                                <Play className="h-8 w-8 text-white mx-auto mb-2" />
-                                                                <p className="text-white text-sm">Video not available</p>
-                                                            </div>
-                                                        </div>
-                                                    )}
+                                                            };
+
+                                                            // Add event listeners
+                                                            document.addEventListener('visibilitychange', handleTabVisibilityChange);
+                                                            window.addEventListener('blur', handleTabVisibilityChange);
+                                                            
+                                                            // Activate extension detection
+                                                            detectExtensionAccess();
+
+                                                            // Cleanup function
+                                                            const cleanup = () => {
+                                                                console.log('Video security deactivated');
+                                                                securityActive = false;
+                                                                document.removeEventListener('visibilitychange', handleTabVisibilityChange);
+                                                                window.removeEventListener('blur', handleTabVisibilityChange);
+                                                            };
+
+                                                            // Cleanup only on video end (NOT on pause - security stays active during pause)
+                                                        
+                                                            
+                                                            // Cleanup after 10 minutes max
+    
+                                                        }}
+                                                        onPause={() => {
+                                                            console.log('Video paused - checkpoint security REMAINS ACTIVE');
+                                                        }}
+                                                        onEnded={() => {
+                                                            console.log('Video ended - checkpoint security deactivated');
+                                                        }}
+                                                        onError={(e) => {
+                                                            console.error('Video loading error:', e);
+                                                            toast.error('Failed to load video. Please try again.');
+                                                        }}
+                                                        onLoadStart={() => {
+                                                            // Add referrer policy and other security headers
+                                                            const video = document.querySelector('.video-protected') as HTMLVideoElement;
+                                                            if (video) {
+                                                                video.crossOrigin = 'anonymous';
+                                                            }
+                                                        }}
+                                                    >
+                                                        Your browser does not support the video tag.
+                                                    </video>
                                                     {/* Overlay to prevent right-click and selection */}
                                                     <div 
                                                         className="absolute inset-0 pointer-events-none"
@@ -539,9 +701,6 @@ const CourseDetail: FC = () => {
     const [videos, setVideos] = useState<Video[]>([]);
     const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
     const [isLoadingVideos, setIsLoadingVideos] = useState(false);
-    const [secureVideoUrl, setSecureVideoUrl] = useState<string | null>(null);
-    const [isLoadingSecureVideo, setIsLoadingSecureVideo] = useState(false);
-    const [videoBlob, setVideoBlob] = useState<string | null>(null);
     const [isEnrolled, setIsEnrolled] = useState(false);
     const [completingVideoId, setCompletingVideoId] = useState<string | null>(null);
 
@@ -602,12 +761,14 @@ const CourseDetail: FC = () => {
     }, [courseId, navigate]);
 
     useEffect(() => {
-        if (selectedVideo && videoRef.current && secureVideoUrl) {
+        if (selectedVideo && videoRef.current) {
             videoRef.current.play().catch(error => {
                 console.log("Autoplay was prevented by the browser.", error);
             });
         }
-    }, [selectedVideo, secureVideoUrl]);
+    }, [selectedVideo]);
+
+
 
     const handleEnroll = () => {
         setShowEnrollmentForm(true);
