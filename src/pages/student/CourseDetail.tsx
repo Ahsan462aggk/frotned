@@ -50,6 +50,10 @@ interface ApplicationStatusResponse {
     status: 'NOT_APPLIED' | 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
+interface PaymentStatusResponse {
+    status: 'active' | 'approved';
+}
+
 interface PurchaseInfo {
     course_title: string;
     course_price: number;
@@ -69,6 +73,311 @@ interface EnrollmentFormData {
     qualification_certificate: File | null;
 }
 
+// --- PAYMENT STATUS CARD COMPONENT ---
+const PaymentStatusCard: FC<{
+    paymentStatus: PaymentStatusResponse['status'];
+    onShowPaymentForm: () => void;
+    isLoadingPurchaseInfo: boolean;
+    courseId: string;
+    isEnrolled: boolean;
+    setVideos: React.Dispatch<React.SetStateAction<Video[]>>;
+    setSelectedVideo: React.Dispatch<React.SetStateAction<Video | null>>;
+    setIsLoadingVideos: React.Dispatch<React.SetStateAction<boolean>>;
+    videoRef: React.RefObject<HTMLVideoElement>;
+    handleVideoPlay: (video: Video) => Promise<void>;
+    handleVideoSelect: (video: Video) => void;
+    handleVideoToggleWatched: (video: Video) => Promise<void>;
+    completingVideoId: string | null;
+    videos: Video[];
+    selectedVideo: Video | null;
+    isLoadingVideos: boolean;
+}> = ({
+    paymentStatus,
+    onShowPaymentForm,
+    isLoadingPurchaseInfo,
+    courseId,
+    isEnrolled,
+    setVideos,
+    setSelectedVideo,
+    setIsLoadingVideos,
+    videoRef,
+    handleVideoPlay,
+    handleVideoSelect,
+    handleVideoToggleWatched,
+    completingVideoId,
+    videos,
+    selectedVideo,
+    isLoadingVideos
+}) => {
+    useEffect(() => {
+        const fetchVideos = async () => {
+            if (!courseId || !isEnrolled || paymentStatus !== 'approved') return;
+
+            setIsLoadingVideos(true);
+            try {
+                const res = await fetchWithAuth(`/api/courses/my-courses/${courseId}/videos-with-checkpoint`);
+                const data = await handleApiResponse<Video[]>(res);
+                setVideos(data);
+                if (data.length > 0) {
+                    setSelectedVideo(data[0]);
+                }
+            } catch (error) {
+                console.error('Failed to fetch videos:', error);
+                toast.error('Failed to load course videos.');
+            } finally {
+                setIsLoadingVideos(false);
+            }
+        };
+
+        if (paymentStatus === 'approved') {
+            fetchVideos();
+        }
+    }, [paymentStatus, courseId, isEnrolled, setVideos, setSelectedVideo, setIsLoadingVideos]);
+
+    switch (paymentStatus) {
+        case 'active':
+            return (
+                <Card className="mt-6 border-yellow-200 bg-yellow-50">
+                    <CardContent className="p-6">
+                        <div className="text-center">
+                            <div className="mx-auto w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
+                                <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                            <h3 className="text-xl font-semibold text-yellow-800 mb-2">
+                                Payment Pending Review
+                            </h3>
+                            <p className="text-yellow-700 mb-4">
+                                Your payment proof has been received and is pending admin approval.
+                            </p>
+                            <div className="bg-white rounded-lg p-4 border border-yellow-200">
+                                <p className="text-sm text-yellow-600">
+                                    <strong>What happens next?</strong>
+                                </p>
+                                <ul className="text-sm text-yellow-600 mt-2 space-y-1">
+                                    <li>• Admin will verify your payment proof</li>
+                                    <li>• You'll receive a confirmation email when approved</li>
+                                    <li>• Once approved, you'll have full access to the course</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            );
+        case 'approved':
+            return (
+                <div className="mt-8">
+                    <h3 className="text-2xl font-bold mb-4">Course Videos</h3>
+                    
+                    {isLoadingVideos ? (
+                        <div className="flex items-center justify-center h-64">
+                            <div className="text-center">
+                                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                                <p className="text-muted-foreground">Loading course videos...</p>
+                            </div>
+                        </div>
+                    ) : videos.length > 0 ? (
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div className="lg:col-span-2">
+                                <Card>
+                                    <CardContent className="p-0">
+                                        {selectedVideo ? (
+                                            <div>
+                                                <div className="aspect-video bg-black rounded-t-lg">
+                                                    <video
+                                                        ref={videoRef}
+                                                        className="w-full h-full rounded-t-lg"
+                                                        controls
+                                                        controlsList="nodownload"
+                                                        onContextMenu={(e) => e.preventDefault()}
+                                                        src={selectedVideo.cloudinary_url}
+                                                        poster="https://placehold.co/800x450/000000/FFFFFF?text=Video+Player"
+                                                        onPlay={() => handleVideoPlay(selectedVideo)}
+                                                        onError={(e) => {
+                                                            console.error('Video loading error:', e);
+                                                            toast.error('Failed to load video. Please try again.');
+                                                        }}
+                                                    >
+                                                        Your browser does not support the video tag.
+                                                    </video>
+                                                </div>
+                                                <div className="p-6 bg-background">
+                                                    <h4 className="text-2xl font-bold mb-2 text-foreground">{selectedVideo.title}</h4>
+                                                    <div className="mt-4 pt-4 border-t border-border/50">
+                                                        <h5 className="text-sm font-semibold uppercase text-muted-foreground mb-2">Description</h5>
+                                                        <p className="text-foreground/80 whitespace-pre-wrap">{selectedVideo.description}</p>
+                                                    </div>
+                                                    <div className="flex items-center justify-between mt-6 pt-4 border-t border-border/50">
+                                                        <Badge variant={selectedVideo.watched ? "default" : "secondary"}>
+                                                            {completingVideoId === selectedVideo.id ? (
+                                                                <>
+                                                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                                                    Updating...
+                                                                </>
+                                                            ) : selectedVideo.watched ? (
+                                                                "Watched"
+                                                            ) : (
+                                                                "Not Watched"
+                                                            )}
+                                                        </Badge>
+                                                        
+                                                        <Button
+                                                            onClick={() => handleVideoToggleWatched(selectedVideo)}
+                                                            disabled={completingVideoId === selectedVideo.id}
+                                                            variant={selectedVideo.watched ? "outline" : "default"}
+                                                            size="sm"
+                                                            className={`transition-all duration-300 ${
+                                                                selectedVideo.watched 
+                                                                    ? "border-orange-500 text-orange-600 hover:bg-orange-50 hover:border-orange-600" 
+                                                                    : "bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-lg hover:shadow-xl"
+                                                            }`}
+                                                        >
+                                                            {completingVideoId === selectedVideo.id ? (
+                                                                <>
+                                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                                    Updating...
+                                                                </>
+                                                            ) : selectedVideo.watched ? (
+                                                                <>
+                                                                    <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                                    </svg>
+                                                                    Mark as Unwatched
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                                    </svg>
+                                                                    Mark as Watched
+                                                                </>
+                                                            )}
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
+                                                <div className="text-center">
+                                                    <Play className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                                                    <p className="text-muted-foreground">Select a video to start learning</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </div>
+                            
+                            <div className="lg:col-span-1">
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle>Video Lessons</CardTitle>
+                                        <CardDescription>{videos.length} videos available</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="space-y-2 max-h-96 overflow-y-auto custom-scrollbar">
+                                            {videos.map((video) => (
+                                                <div
+                                                    key={video.id}
+                                                    className={`flex items-center p-3 rounded-lg cursor-pointer transition-all duration-200 border-2 border-transparent ${
+                                                        selectedVideo?.id === video.id
+                                                            ? 'bg-primary/10 border-primary text-primary'
+                                                            : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                                                    }`}
+                                                    onClick={() => handleVideoSelect(video)}
+                                                >
+                                                    <Play className={`h-5 w-5 mr-3 flex-shrink-0 transition-colors duration-200 ${selectedVideo?.id === video.id ? 'text-primary' : ''}`} />
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className={`font-medium text-sm truncate transition-colors duration-200 ${selectedVideo?.id === video.id ? 'text-primary-foreground' : 'text-inherit'}`}>{video.title}</p>
+                                                    </div>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className={`ml-2 flex-shrink-0 px-2 py-1 h-auto text-xs rounded-full transition-all duration-200 ${
+                                                            completingVideoId === video.id
+                                                                ? 'bg-muted text-muted-foreground'
+                                                                : video.watched
+                                                                ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20'
+                                                                : 'bg-gray-500/10 text-gray-400 hover:bg-gray-500/20'
+                                                        }`}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleVideoToggleWatched(video);
+                                                        }}
+                                                        disabled={completingVideoId === video.id}
+                                                    >
+                                                        {completingVideoId === video.id ? (
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                        ) : video.watched ? (
+                                                            <>
+                                                                <CheckCircle className="h-4 w-4 mr-1" />
+                                                                <span>Watched</span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Circle className="h-4 w-4 mr-1" />
+                                                                <span>Unwatched</span>
+                                                            </>
+                                                        )}
+                                                    </Button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        </div>
+                    ) : (
+                        <Card>
+                            <CardContent className="p-6 text-center">
+                                <Play className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                                <p className="text-muted-foreground">No videos available for this course yet.</p>
+                                <p className="text-sm text-muted-foreground mt-1">Check back later for new content.</p>
+                            </CardContent>
+                        </Card>
+                    )}
+                </div>
+            );
+        default:
+            return (
+                <Card className="mt-6 border-green-200 bg-green-50">
+                    <CardContent className="p-6">
+                        <div className="text-center">
+                            <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                            </div>
+                            <h3 className="text-xl font-semibold text-green-800 mb-2">
+                                Application Approved!
+                            </h3>
+                            <p className="text-green-700 mb-4">
+                                Your enrollment application has been approved. Please submit your payment proof to complete the enrollment.
+                            </p>
+                            <Button
+                                onClick={onShowPaymentForm}
+                                size="lg"
+                                className="w-full"
+                                disabled={isLoadingPurchaseInfo}
+                            >
+                                {isLoadingPurchaseInfo ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Loading Payment Info...
+                                    </>
+                                ) : (
+                                    'Submit Payment Proof'
+                                )}
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            );
+    }
+};
+
+// --- MAIN COMPONENT ---
 const CourseDetail: FC = () => {
     const { courseId } = useParams<{ courseId: string }>();
     const navigate = useNavigate();
@@ -79,6 +388,7 @@ const CourseDetail: FC = () => {
     // --- STATE ---
     const [course, setCourse] = useState<CourseInfo | null>(null);
     const [applicationStatus, setApplicationStatus] = useState<ApplicationStatusResponse['status'] | null>(null);
+    const [paymentStatus, setPaymentStatus] = useState<PaymentStatusResponse['status'] | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [showEnrollmentForm, setShowEnrollmentForm] = useState(false);
@@ -97,8 +407,6 @@ const CourseDetail: FC = () => {
     const [purchaseInfo, setPurchaseInfo] = useState<PurchaseInfo | null>(null);
     const [isLoadingPurchaseInfo, setIsLoadingPurchaseInfo] = useState(false);
     
-    const [paymentPending, setPaymentPending] = useState(false); // new state to track payment review
-    
     // Video states
     const [videos, setVideos] = useState<Video[]>([]);
     const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
@@ -106,8 +414,8 @@ const CourseDetail: FC = () => {
     const [isEnrolled, setIsEnrolled] = useState(false);
     const [completingVideoId, setCompletingVideoId] = useState<string | null>(null);
 
-        useEffect(() => {
-                        const fetchCourseAndStatus = async () => {
+    useEffect(() => {
+        const fetchCourseAndStatus = async () => {
             if (!courseId) {
                 setError("Course ID is missing.");
                 setIsLoading(false);
@@ -116,35 +424,34 @@ const CourseDetail: FC = () => {
 
             setIsLoading(true);
             try {
-                // Step 1: Fetch basic course details and enrollment status
+                // Fetch course details
                 const courseRes = await fetchWithAuth(`/api/courses/explore-courses/${courseId}`);
                 setCourse(await handleApiResponse(courseRes));
 
+                // Fetch application status
                 const statusRes = await fetchWithAuth(`/api/courses/my-courses/${courseId}/enrollment-status`);
                 const statusData = await handleApiResponse<ApplicationStatusResponse>(statusRes);
                 setApplicationStatus(statusData.status);
 
-                // Step 2: If application is approved, check payment status
+                // Fetch payment status if application is approved
                 if (statusData.status === 'APPROVED') {
                     try {
-                        const paymentStatusRes = await fetchWithAuth(`/api/enrollments/${courseId}/payment-proof/status`);
-                        const paymentStatusData = await handleApiResponse<{ status: string }>(paymentStatusRes);
-                        if (paymentStatusData?.status === 'pending') {
-                            setPaymentPending(true);
-                        }
+                        const paymentStatusRes = await fetchWithAuth(`/api/enrollments/enrollments/${courseId}/payment-proof/status`);
+                        const paymentStatusData = await handleApiResponse<PaymentStatusResponse>(paymentStatusRes);
+                        setPaymentStatus(paymentStatusData.status);
                     } catch (paymentError) {
-                        // A 404 is expected if no proof is submitted, so we just log it.
-                        console.log('Could not fetch payment proof status. This is expected if not yet submitted.');
-                        setPaymentPending(false);
+                        console.log('No payment proof submitted yet or error fetching status.');
+                        setPaymentStatus('PENDING'); // Default to PENDING if no status is returned
                     }
+                } else {
+                    setPaymentStatus(null); // Reset payment status if application is not approved
                 }
 
-                // Step 3: Check if user is fully enrolled to show videos
+                // Check enrollment status
                 const enrolledCoursesRes = await fetchWithAuth('/api/courses/my-courses');
                 const enrolledCourses = await handleApiResponse<EnrolledCourse[]>(enrolledCoursesRes);
-                if (enrolledCourses.some((c: EnrolledCourse) => c.id === courseId)) {
-                    setIsEnrolled(true);
-                }
+                const isUserEnrolled = enrolledCourses.some((c: EnrolledCourse) => c.id === courseId);
+                setIsEnrolled(isUserEnrolled);
 
             } catch (error) {
                 if (error instanceof UnauthorizedError) {
@@ -161,59 +468,8 @@ const CourseDetail: FC = () => {
         };
 
         fetchCourseAndStatus();
-    }, [courseId, navigate]); // This effect runs whenever courseId or navigate changes
+    }, [courseId, navigate]);
 
-        useEffect(() => {
-        const fetchVideos = async () => {
-            if (!courseId || !isEnrolled) return;
-
-            setIsLoadingVideos(true);
-            try {
-                const res = await fetchWithAuth(`/api/courses/my-courses/${courseId}/videos-with-checkpoint`);
-                const data = await handleApiResponse<Video[]>(res);
-                setVideos(data);
-                if (data.length > 0) {
-                    setSelectedVideo(data[0]);
-                }
-            } catch (error) {
-                console.error('Failed to fetch videos:', error);
-                toast.error('Failed to load course videos.');
-            } finally {
-                setIsLoadingVideos(false);
-            }
-        };
-
-        if (isEnrolled) {
-            fetchVideos();
-        }
-    }, [courseId, isEnrolled]);
-
-    useEffect(() => {
-        const checkEnrollment = async () => {
-            if (!courseId) return;
-            
-            try {
-                const enrolledCoursesRes = await fetchWithAuth('/api/courses/my-courses');
-                const enrolledCourses = await handleApiResponse<EnrolledCourse[]>(enrolledCoursesRes);
-                const enrolledCourse = enrolledCourses.find((course: EnrolledCourse) => course.id === courseId);
-                const isUserEnrolled = !!enrolledCourse;
-                setIsEnrolled(isUserEnrolled);
-                
-                // If user is enrolled but application status is not APPROVED, update the status
-                if (isUserEnrolled && applicationStatus !== 'APPROVED') {
-                    console.log('User is enrolled but status was not APPROVED, updating status');
-                    setApplicationStatus('APPROVED');
-                }
-            } catch (enrollmentError) {
-                console.error('Failed to check enrollment status:', enrollmentError);
-                // Don't fail the entire request if enrollment check fails
-            }
-        };
-
-        checkEnrollment();
-    }, [courseId, applicationStatus]);
-
-    // Autoplay video on selection
     useEffect(() => {
         if (selectedVideo && videoRef.current) {
             videoRef.current.play().catch(error => {
@@ -230,7 +486,6 @@ const CourseDetail: FC = () => {
         e.preventDefault();
         if (!courseId) return;
 
-        // Validate form
         if (!enrollmentForm.first_name || !enrollmentForm.last_name || !enrollmentForm.qualification || 
             !enrollmentForm.ultrasound_experience || !enrollmentForm.contact_number) {
             toast.error('Please fill in all required fields.');
@@ -245,7 +500,6 @@ const CourseDetail: FC = () => {
         setIsSubmitting(true);
         
         try {
-            // Create form data with required fields
             const formData = new FormData();
             formData.append('first_name', enrollmentForm.first_name);
             formData.append('last_name', enrollmentForm.last_name);
@@ -302,15 +556,17 @@ const CourseDetail: FC = () => {
                 method: 'POST',
                 data: formData,
             });
-            const data = await handleApiResponse<{ status: string; message?: string }>(res);
-            toast.success(data.message || 'Payment proof submitted successfully!');
+            await handleApiResponse<{ status: string; message?: string }>(res);
+            toast.success('Payment proof submitted successfully!');
 
-            if (data?.status === 'pending') {
-                setPaymentPending(true);
-            } else {
-                // Fallback for safety, though the backend should always return 'pending'
-                setPaymentPending(true);
-                console.warn('Payment status was not `pending` in the response. UI updated optimistically.');
+            // Re-fetch payment status to ensure UI updates
+            try {
+                const paymentStatusRes = await fetchWithAuth(`/api/enrollments/enrollments/${courseId}/payment-proof/status`);
+                const paymentStatusData = await handleApiResponse<PaymentStatusResponse>(paymentStatusRes);
+                setPaymentStatus(paymentStatusData.status);
+            } catch (paymentError) {
+                console.log('Error re-fetching payment status:', paymentError);
+                setPaymentStatus('active'); // Fallback to active (PENDING) if fetch fails
             }
 
             setShowPaymentForm(false);
@@ -351,7 +607,6 @@ const CourseDetail: FC = () => {
         setShowPaymentForm(true);
     };
 
-    // Video handling functions
     const handleVideoPlay = async (video: Video) => {
         if (!video.watched) {
             setCompletingVideoId(video.id);
@@ -450,7 +705,6 @@ const CourseDetail: FC = () => {
                         <CardDescription>Taught by: {course.instructor_name}</CardDescription>
                     </CardHeader>
                     <CardContent className="p-6">
-
                         <div className="mb-6">
                             <h3 className="text-xl font-semibold mb-3 text-foreground">Course Description</h3>
                             <div className="rounded-lg p-4 bg-muted/50 dark:bg-muted/20 border">
@@ -603,42 +857,28 @@ const CourseDetail: FC = () => {
                             </Card>
                         )}
                         
-                        {applicationStatus === 'APPROVED' && !isEnrolled && !showPaymentForm && !paymentPending && (
-                            <div className="text-center">
-                                <Card className="mt-6 border-green-200 bg-green-50">
-                                    <CardContent className="p-6">
-                                        <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-                                            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                            </svg>
-                                        </div>
-                                        <h3 className="text-xl font-semibold text-green-800 mb-2">
-                                            Application Approved!
-                                        </h3>
-                                        <p className="text-green-700 mb-4">
-                                            Your enrollment application has been approved. Please submit your payment proof to complete the enrollment.
-                                        </p>
-                                        <Button 
-                                            onClick={handleShowPaymentForm} 
-                                            size="lg" 
-                                            className="w-full"
-                                            disabled={isLoadingPurchaseInfo}
-                                        >
-                                            {isLoadingPurchaseInfo ? (
-                                                <>
-                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                    Loading Payment Info...
-                                                </>
-                                            ) : (
-                                                'Submit Payment Proof'
-                                            )}
-                                        </Button>
-                                    </CardContent>
-                                </Card>
-                            </div>
+                        {applicationStatus === 'APPROVED' && !showPaymentForm && paymentStatus !== null && (
+                            <PaymentStatusCard
+                                paymentStatus={paymentStatus}
+                                onShowPaymentForm={handleShowPaymentForm}
+                                isLoadingPurchaseInfo={isLoadingPurchaseInfo}
+                                courseId={courseId || ''}
+                                isEnrolled={isEnrolled}
+                                setVideos={setVideos}
+                                setSelectedVideo={setSelectedVideo}
+                                setIsLoadingVideos={setIsLoadingVideos}
+                                videoRef={videoRef}
+                                handleVideoPlay={handleVideoPlay}
+                                handleVideoSelect={handleVideoSelect}
+                                handleVideoToggleWatched={handleVideoToggleWatched}
+                                completingVideoId={completingVideoId}
+                                videos={videos}
+                                selectedVideo={selectedVideo}
+                                isLoadingVideos={isLoadingVideos}
+                            />
                         )}
                         
-                        {applicationStatus === 'APPROVED' && !isEnrolled && showPaymentForm && !paymentPending && (
+                        {applicationStatus === 'APPROVED' && showPaymentForm && (
                             <Card className="mt-6 border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg">
                                 <CardHeader className="bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-t-lg">
                                     <CardTitle className="flex items-center gap-2">
@@ -654,7 +894,6 @@ const CourseDetail: FC = () => {
                                 <CardContent className="p-6">
                                     {purchaseInfo && (
                                         <div className="mb-8">
-                                            {/* Course and Amount Section */}
                                             <div className="bg-white rounded-xl p-6 shadow-md border border-green-200 mb-6">
                                                 <div className="flex items-center justify-between mb-4">
                                                     <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -679,7 +918,6 @@ const CourseDetail: FC = () => {
                                                 </div>
                                             </div>
 
-                                            {/* Bank Account Details */}
                                             <div className="bg-white rounded-xl p-6 shadow-md border border-blue-200">
                                                 <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                                                     <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -731,7 +969,6 @@ const CourseDetail: FC = () => {
                                         </div>
                                     )}
 
-                                    {/* Payment Proof Upload Section */}
                                     <div className="bg-white rounded-xl p-6 shadow-md border border-purple-200 mt-6">
                                         <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                                             <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -843,215 +1080,6 @@ const CourseDetail: FC = () => {
                                 </CardContent>
                             </Card>
                         )}
-                        
-                        {paymentPending && (
-                            <Card className="mt-6 border-green-200 bg-green-50">
-                                <CardContent className="p-6">
-                                    <div className="text-center">
-                                        <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-                                            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                            </svg>
-                                        </div>
-                                        <h3 className="text-xl font-semibold text-green-800 mb-2">
-                                            Payment Proof Submitted!
-                                        </h3>
-                                        <p className="text-green-700 mb-4">
-                                            Your payment proof has been received and is pending admin approval. You will receive an email when your enrollment is approved.
-                                        </p>
-                                        <div className="bg-white rounded-lg p-4 border border-green-200">
-                                            <p className="text-sm text-green-600">
-                                                <strong>What happens next?</strong>
-                                            </p>
-                                            <ul className="text-sm text-green-600 mt-2 space-y-1">
-                                                <li>• Admin will verify your payment proof</li>
-                                                <li>• You'll receive a confirmation email when approved</li>
-                                                <li>• Once approved, you'll have full access to the course</li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {/* Video Player Section - Only show when enrolled */}
-                        {isEnrolled ? (
-                            <div className="mt-8">
-                                <h3 className="text-2xl font-bold mb-4">Course Videos</h3>
-                                
-                                {isLoadingVideos ? (
-                                    <div className="flex items-center justify-center h-64">
-                                        <div className="text-center">
-                                            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                                            <p className="text-muted-foreground">Loading course videos...</p>
-                                        </div>
-                                    </div>
-                                ) : videos.length > 0 ? (
-                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                        {/* Video Player */}
-                                        <div className="lg:col-span-2">
-                                            <Card>
-                                                <CardContent className="p-0">
-                                                    {selectedVideo ? (
-                                                        <div>
-                                                            <div className="aspect-video bg-black rounded-t-lg">
-                                                                <video
-                                                                    ref={videoRef}
-                                                                    className="w-full h-full rounded-t-lg"
-                                                                    controls
-                                                                    controlsList="nodownload"
-                                                                    onContextMenu={(e) => e.preventDefault()}
-                                                                    src={selectedVideo.cloudinary_url}
-                                                                    poster="https://placehold.co/800x450/000000/FFFFFF?text=Video+Player"
-                                                                    onPlay={() => {
-                                                                        handleVideoPlay(selectedVideo);
-                                                                    }}
-                                                                    onError={(e) => {
-                                                                        console.error('Video loading error:', e);
-                                                                        toast.error('Failed to load video. Please try again.');
-                                                                    }}
-                                                                >
-                                                                    Your browser does not support the video tag.
-                                                                </video>
-                                                            </div>
-                                                            <div className="p-6 bg-background">
-                                                                <h4 className="text-2xl font-bold mb-2 text-foreground">{selectedVideo.title}</h4>
-                                                                <div className="mt-4 pt-4 border-t border-border/50">
-                                                                    <h5 className="text-sm font-semibold uppercase text-muted-foreground mb-2">Description</h5>
-                                                                    <p className="text-foreground/80 whitespace-pre-wrap">{selectedVideo.description}</p>
-                                                                </div>
-                                                                <div className="flex items-center justify-between mt-6 pt-4 border-t border-border/50">
-                                                                    <Badge variant={selectedVideo.watched ? "default" : "secondary"}>
-                                                                        {completingVideoId === selectedVideo.id ? (
-                                                                            <>
-                                                                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                                                                Updating...
-                                                                            </>
-                                                                        ) : selectedVideo.watched ? (
-                                                                            "Watched"
-                                                                        ) : (
-                                                                            "Not Watched"
-                                                                        )}
-                                                                    </Badge>
-                                                                    
-                                                                    <Button
-                                                                        onClick={() => handleVideoToggleWatched(selectedVideo)}
-                                                                        disabled={completingVideoId === selectedVideo.id}
-                                                                        variant={selectedVideo.watched ? "outline" : "default"}
-                                                                        size="sm"
-                                                                        className={`transition-all duration-300 ${
-                                                                            selectedVideo.watched 
-                                                                                ? "border-orange-500 text-orange-600 hover:bg-orange-50 hover:border-orange-600" 
-                                                                                : "bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-lg hover:shadow-xl"
-                                                                        }`}
-                                                                    >
-                                                                        {completingVideoId === selectedVideo.id ? (
-                                                                            <>
-                                                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                                                Updating...
-                                                                            </>
-                                                                        ) : selectedVideo.watched ? (
-                                                                            <>
-                                                                                <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                                                </svg>
-                                                                                Mark as Unwatched
-                                                                            </>
-                                                                        ) : (
-                                                                            <>
-                                                                                <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                                                                </svg>
-                                                                                Mark as Watched
-                                                                            </>
-                                                                        )}
-                                                                    </Button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
-                                                            <div className="shop text-center">
-                                                                <Play className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                                                                <p className="text-muted-foreground">Select a video to start learning</p>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </CardContent>
-                                            </Card>
-                                        </div>
-                                        
-                                        {/* Video List */}
-                                        <div className="lg:col-span-1">
-                                            <Card>
-                                                <CardHeader>
-                                                    <CardTitle>Video Lessons</CardTitle>
-                                                    <CardDescription>{videos.length} videos available</CardDescription>
-                                                </CardHeader>
-                                                <CardContent>
-                                                    <div className="space-y-2 max-h-96 overflow-y-auto custom-scrollbar">
-                                                        {videos.map((video) => (
-                                                            <div
-                                                                key={video.id}
-                                                                className={`flex items-center p-3 rounded-lg cursor-pointer transition-all duration-200 border-2 border-transparent ${
-                                                                    selectedVideo?.id === video.id
-                                                                        ? 'bg-primary/10 border-primary text-primary'
-                                                                        : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-                                                                }`}
-                                                                onClick={() => handleVideoSelect(video)}
-                                                            >
-                                                                <Play className={`h-5 w-5 mr-3 flex-shrink-0 transition-colors duration-200 ${selectedVideo?.id === video.id ? 'text-primary' : ''}`} />
-                                                                <div className="flex-1 min-w-0">
-                                                                    <p className={`font-medium text-sm truncate transition-colors duration-200 ${selectedVideo?.id === video.id ? 'text-primary-foreground' : 'text-inherit'}`}>{video.title}</p>
-                                                                </div>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className={`ml-2 flex-shrink-0 px-2 py-1 h-auto text-xs rounded-full transition-all duration-200 ${
-                                                                        completingVideoId === video.id
-                                                                            ? 'bg-muted text-muted-foreground'
-                                                                            : video.watched
-                                                                            ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20'
-                                                                            : 'bg-gray-500/10 text-gray-400 hover:bg-gray-500/20'
-                                                                    }`}
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        handleVideoToggleWatched(video);
-                                                                    }}
-                                                                    disabled={completingVideoId === video.id}
-                                                                >
-                                                                    {completingVideoId === video.id ? (
-                                                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                                                    ) : video.watched ? (
-                                                                        <>
-                                                                            <CheckCircle className="h-4 w-4 mr-1" />
-                                                                            <span>Watched</span>
-                                                                        </>
-                                                                    ) : (
-                                                                        <>
-                                                                            <Circle className="h-4 w-4 mr-1" />
-                                                                            <span>Unwatched</span>
-                                                                        </>
-                                                                    )}
-                                                                </Button>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </CardContent>
-                                            </Card>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <Card>
-                                        <CardContent className="p-6 text-center">
-                                            <Play className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                                            <p className="text-muted-foreground">No videos available for this course yet.</p>
-                                            <p className="text-sm text-muted-foreground mt-1">Check back later for new content.</p>
-                                        </CardContent>
-                                    </Card>
-                                )}
-                            </div>
-                        ) : null}
                     </CardContent>
                 </Card>
                 <Button variant="outline" className="w-full mt-4" onClick={() => navigate('/student/courses')}>Back to Courses</Button>
@@ -1060,4 +1088,4 @@ const CourseDetail: FC = () => {
     );
 };
 
-export default CourseDetail; 
+export default CourseDetail;

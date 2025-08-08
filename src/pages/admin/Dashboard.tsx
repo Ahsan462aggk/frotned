@@ -36,10 +36,6 @@ const AdminDashboard = () => {
     fetchStats();
   }, []);
 
-  if (stats) {
-    console.log('Dashboard Stats:', stats);
-  }
-
   return (
     <DashboardLayout userType="admin">
       <div className="p-8">

@@ -44,7 +44,7 @@ const Login = () => {
       }
       
       data = await response.json();
-      console.log('Login Response:', data);
+
 
       // Clear previous tokens before saving new session
       localStorage.removeItem('admin_access_token');
@@ -156,6 +156,7 @@ const Login = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your@email.com"
                   className="mt-1"
+                  autoComplete="email"
                 />
               </div>
 
@@ -168,6 +169,7 @@ const Login = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
+                    autoComplete="current-password"
                   />
                   <button
                     type="button"
