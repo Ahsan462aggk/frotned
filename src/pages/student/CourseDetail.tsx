@@ -1,4 +1,3 @@
-
 import { useState, useEffect, FC, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -110,9 +109,6 @@ const PaymentStatusCard: FC<{
     selectedVideo,
     isLoadingVideos
 }) => {
-    const [videoBlobUrl, setVideoBlobUrl] = useState<string | null>(null);
-
-    // Fetch videos
     useEffect(() => {
         const fetchVideos = async () => {
             if (!courseId || !isEnrolled || paymentStatus !== 'approved') return;
@@ -137,58 +133,6 @@ const PaymentStatusCard: FC<{
             fetchVideos();
         }
     }, [paymentStatus, courseId, isEnrolled, setVideos, setSelectedVideo, setIsLoadingVideos]);
-
-    // Load video as Blob to obfuscate URL
-    useEffect(() => {
-        if (selectedVideo && videoRef.current) {
-            const loadVideo = async () => {
-                try {
-                    const response = await fetchWithAuth(`${selectedVideo.cloudinary_url}?t=${Date.now()}`, {
-                        responseType: 'blob', // Fetch as binary data
-                    });
-                    const blob = await response.blob();
-                    const blobUrl = URL.createObjectURL(blob);
-                    setVideoBlobUrl(blobUrl);
-                    videoRef.current.src = blobUrl;
-                    videoRef.current.load();
-                    videoRef.current.play().catch(error => {
-                        console.log("Autoplay was prevented:", error);
-                        toast.error("Failed to play video. Please try again.");
-                    });
-                } catch (error) {
-                    console.error('Failed to load video blob:', error);
-                    toast.error('Failed to load video. Please try again.');
-                }
-            };
-            loadVideo();
-
-            // Cleanup Blob URL
-            return () => {
-                if (videoBlobUrl) {
-                    URL.revokeObjectURL(videoBlobUrl);
-                    setVideoBlobUrl(null);
-                }
-            };
-        }
-    }, [selectedVideo, videoRef]);
-
-    // Detect developer tools (basic deterrence)
-    useEffect(() => {
-        const detectDevTools = () => {
-            const threshold = 100;
-            if (
-                window.outerWidth - window.innerWidth > threshold ||
-                window.outerHeight - window.innerHeight > threshold
-            ) {
-                toast.warning('Developer tools detected. Video playback may be restricted.');
-                if (videoRef.current) {
-                    videoRef.current.pause();
-                }
-            }
-        };
-        window.addEventListener('resize', detectDevTools);
-        return () => window.removeEventListener('resize', detectDevTools);
-    }, []);
 
     switch (paymentStatus) {
         case 'active':
@@ -237,23 +181,17 @@ const PaymentStatusCard: FC<{
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             <div className="lg:col-span-2">
                                 <Card>
-                                    <CardContent className="p-0 relative">
+                                    <CardContent className="p-0">
                                         {selectedVideo ? (
                                             <div>
-                                                <div className="aspect-video bg-black rounded-t-lg relative">
-                                                    {/* Transparent overlay to intercept clicks */}
-                                                    <div
-                                                        className="absolute inset-0 z-10"
-                                                        onContextMenu={(e) => e.preventDefault()}
-                                                        onClick={(e) => e.preventDefault()}
-                                                    />
+                                                <div className="aspect-video bg-black rounded-t-lg">
                                                     <video
                                                         ref={videoRef}
                                                         className="w-full h-full rounded-t-lg"
                                                         controls
-                                                        controlsList="nodownload noremoteplayback"
-                                                        disablePictureInPicture
+                                                        controlsList="nodownload"
                                                         onContextMenu={(e) => e.preventDefault()}
+                                                        src={selectedVideo.cloudinary_url}
                                                         poster="https://placehold.co/800x450/000000/FFFFFF?text=Video+Player"
                                                         onPlay={() => handleVideoPlay(selectedVideo)}
                                                         onError={(e) => {
@@ -531,6 +469,14 @@ const CourseDetail: FC = () => {
 
         fetchCourseAndStatus();
     }, [courseId, navigate]);
+
+    useEffect(() => {
+        if (selectedVideo && videoRef.current) {
+            videoRef.current.play().catch(error => {
+                console.log("Autoplay was prevented by the browser.", error);
+            });
+        }
+    }, [selectedVideo]);
 
     const handleEnroll = () => {
         setShowEnrollmentForm(true);
