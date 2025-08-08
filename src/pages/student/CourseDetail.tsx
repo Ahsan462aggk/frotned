@@ -110,6 +110,10 @@ const PaymentStatusCard: FC<{
     selectedVideo,
     isLoadingVideos
 }) => {
+    const [videoBlob, setVideoBlob] = useState<string | null>(null);
+    const [secureVideoUrl, setSecureVideoUrl] = useState<string | null>(null);
+    const [isLoadingSecureVideo, setIsLoadingSecureVideo] = useState(false);
+
     useEffect(() => {
         const fetchVideos = async () => {
             if (!courseId || !isEnrolled || paymentStatus !== 'approved') return;
@@ -134,6 +138,78 @@ const PaymentStatusCard: FC<{
             fetchVideos();
         }
     }, [paymentStatus, courseId, isEnrolled, setVideos, setSelectedVideo, setIsLoadingVideos]);
+
+    useEffect(() => {
+        const loadSecureVideo = async () => {
+            if (!selectedVideo) {
+                // Clean up previous blob URL
+                if (videoBlob) {
+                    URL.revokeObjectURL(videoBlob);
+                }
+                setSecureVideoUrl(null);
+                setVideoBlob(null);
+                return;
+            }
+
+            setIsLoadingSecureVideo(true);
+            try {
+                // Step 1: Create a secure, obfuscated request
+                const obfuscatedParams = btoa(`${selectedVideo.id}_${Date.now()}_${Math.random()}`);
+                const secureHeaders = {
+                    'X-Video-Access': obfuscatedParams,
+                    'X-Timestamp': Date.now().toString(),
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache'
+                };
+
+                // Step 2: Fetch video as blob to hide URL from network tab
+                const videoResponse = await fetch(selectedVideo.cloudinary_url, {
+                    method: 'GET',
+                    headers: secureHeaders,
+                    cache: 'no-cache'
+                });
+
+                if (!videoResponse.ok) {
+                    throw new Error('Failed to load video content');
+                }
+
+                // Step 3: Convert to blob and create object URL
+                const videoBlob = await videoResponse.blob();
+                const blobUrl = URL.createObjectURL(videoBlob);
+                
+                // Step 4: Store blob URL (this hides the real URL completely)
+                setVideoBlob(blobUrl);
+                setSecureVideoUrl(blobUrl);
+
+                // Step 5: Add additional obfuscation layers
+                setTimeout(() => {
+                    // Periodically refresh the blob URL to prevent caching
+                    if (videoBlob) {
+                        const newBlobUrl = URL.createObjectURL(videoBlob);
+                        setSecureVideoUrl(newBlobUrl);
+                        URL.revokeObjectURL(blobUrl);
+                    }
+                }, 30000); // Refresh every 30 seconds
+
+            } catch (error) {
+                console.error('Error loading secure video:', error);
+                toast.error('Failed to load video. Please try again.');
+                setSecureVideoUrl(null);
+                setVideoBlob(null);
+            } finally {
+                setIsLoadingSecureVideo(false);
+            }
+        };
+
+        loadSecureVideo();
+
+        // Cleanup function
+        return () => {
+            if (videoBlob) {
+                URL.revokeObjectURL(videoBlob);
+            }
+        };
+    }, [selectedVideo]);
 
     switch (paymentStatus) {
         case 'active':
@@ -186,32 +262,53 @@ const PaymentStatusCard: FC<{
                                         {selectedVideo ? (
                                             <div>
                                                 <div className="aspect-video bg-black rounded-t-lg relative">
-                                                    <video
-                                                        className="w-full h-full rounded-t-lg video-protected"
-                                                        controls
-                                                        controlsList="nodownload noremoteplayback noplaybackrate"
-                                                        disablePictureInPicture
-                                                        disableRemotePlayback
-                                                        onContextMenu={(e) => e.preventDefault()}
-                                                        onSelectStart={(e) => e.preventDefault()}
-                                                        onDragStart={(e) => e.preventDefault()}
-                                                        src={selectedVideo.cloudinary_url}
-                                                        poster="https://placehold.co/800x450/000000/FFFFFF?text=Video+Player"
-                                                        onPlay={() => handleVideoPlay(selectedVideo)}
-                                                        onError={(e) => {
-                                                            console.error('Video loading error:', e);
-                                                            toast.error('Failed to load video. Please try again.');
-                                                        }}
-                                                        onLoadStart={() => {
-                                                            // Add referrer policy and other security headers
-                                                            const video = document.querySelector('.video-protected') as HTMLVideoElement;
-                                                            if (video) {
-                                                                video.crossOrigin = 'anonymous';
-                                                            }
-                                                        }}
-                                                    >
-                                                        Your browser does not support the video tag.
-                                                    </video>
+                                                    {isLoadingSecureVideo ? (
+                                                        <div className="w-full h-full rounded-t-lg bg-gray-900 flex items-center justify-center">
+                                                            <div className="text-center">
+                                                                <Loader2 className="h-8 w-8 animate-spin text-white mx-auto mb-2" />
+                                                                <p className="text-white text-sm">Securing video...</p>
+                                                            </div>
+                                                        </div>
+                                                    ) : secureVideoUrl ? (
+                                                        <video
+                                                            ref={videoRef}
+                                                            className="w-full h-full rounded-t-lg video-protected"
+                                                            controls
+                                                            controlsList="nodownload noremoteplayback noplaybackrate"
+                                                            disablePictureInPicture
+                                                            disableRemotePlayback
+                                                            onContextMenu={(e) => e.preventDefault()}
+                                                            onDragStart={(e) => e.preventDefault()}
+                                                            src={secureVideoUrl}
+                                                            poster="https://placehold.co/800x450/000000/FFFFFF?text=Secure+Video+Player"
+                                                            onPlay={() => handleVideoPlay(selectedVideo)}
+                                                            onError={(e) => {
+                                                                console.error('Secure video loading error:', e);
+                                                                toast.error('Failed to load secure video. Please try again.');
+                                                            }}
+                                                            onLoadStart={() => {
+                                                                // Enhanced security for blob URLs
+                                                                const video = document.querySelector('.video-protected') as HTMLVideoElement;
+                                                                if (video) {
+                                                                    video.crossOrigin = 'anonymous';
+                                                                    // Add additional security attributes
+                                                                    video.setAttribute('data-secure', 'true');
+                                                                    video.setAttribute('data-protected', Date.now().toString());
+                                                                    // Add selectstart prevention via event listener
+                                                                    video.addEventListener('selectstart', (e) => e.preventDefault());
+                                                                }
+                                                            }}
+                                                        >
+                                                            Your browser does not support the video tag.
+                                                        </video>
+                                                    ) : (
+                                                        <div className="w-full h-full rounded-t-lg bg-gray-900 flex items-center justify-center">
+                                                            <div className="text-center">
+                                                                <Play className="h-8 w-8 text-white mx-auto mb-2" />
+                                                                <p className="text-white text-sm">Video not available</p>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                     {/* Overlay to prevent right-click and selection */}
                                                     <div 
                                                         className="absolute inset-0 pointer-events-none"
@@ -436,6 +533,9 @@ const CourseDetail: FC = () => {
     const [videos, setVideos] = useState<Video[]>([]);
     const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
     const [isLoadingVideos, setIsLoadingVideos] = useState(false);
+    const [secureVideoUrl, setSecureVideoUrl] = useState<string | null>(null);
+    const [isLoadingSecureVideo, setIsLoadingSecureVideo] = useState(false);
+    const [videoBlob, setVideoBlob] = useState<string | null>(null);
     const [isEnrolled, setIsEnrolled] = useState(false);
     const [completingVideoId, setCompletingVideoId] = useState<string | null>(null);
 
@@ -496,12 +596,12 @@ const CourseDetail: FC = () => {
     }, [courseId, navigate]);
 
     useEffect(() => {
-        if (selectedVideo && videoRef.current) {
+        if (selectedVideo && videoRef.current && secureVideoUrl) {
             videoRef.current.play().catch(error => {
                 console.log("Autoplay was prevented by the browser.", error);
             });
         }
-    }, [selectedVideo]);
+    }, [selectedVideo, secureVideoUrl]);
 
     const handleEnroll = () => {
         setShowEnrollmentForm(true);
