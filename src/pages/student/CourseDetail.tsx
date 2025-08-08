@@ -10,6 +10,7 @@ import { Loader2, AlertCircle, Upload, Play, CheckCircle, Circle } from 'lucide-
 import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Badge } from '@/components/ui/badge';
+import '@/styles/video-protection.css';
 
 // --- INTERFACES ---
 interface CourseInfo {
@@ -184,13 +185,16 @@ const PaymentStatusCard: FC<{
                                     <CardContent className="p-0">
                                         {selectedVideo ? (
                                             <div>
-                                                <div className="aspect-video bg-black rounded-t-lg">
+                                                <div className="aspect-video bg-black rounded-t-lg relative">
                                                     <video
-                                                        ref={videoRef}
-                                                        className="w-full h-full rounded-t-lg"
+                                                        className="w-full h-full rounded-t-lg video-protected"
                                                         controls
-                                                        controlsList="nodownload"
+                                                        controlsList="nodownload noremoteplayback noplaybackrate"
+                                                        disablePictureInPicture
+                                                        disableRemotePlayback
                                                         onContextMenu={(e) => e.preventDefault()}
+                                                        onSelectStart={(e) => e.preventDefault()}
+                                                        onDragStart={(e) => e.preventDefault()}
                                                         src={selectedVideo.cloudinary_url}
                                                         poster="https://placehold.co/800x450/000000/FFFFFF?text=Video+Player"
                                                         onPlay={() => handleVideoPlay(selectedVideo)}
@@ -198,9 +202,30 @@ const PaymentStatusCard: FC<{
                                                             console.error('Video loading error:', e);
                                                             toast.error('Failed to load video. Please try again.');
                                                         }}
+                                                        onLoadStart={() => {
+                                                            // Add referrer policy and other security headers
+                                                            const video = document.querySelector('.video-protected') as HTMLVideoElement;
+                                                            if (video) {
+                                                                video.crossOrigin = 'anonymous';
+                                                            }
+                                                        }}
                                                     >
                                                         Your browser does not support the video tag.
                                                     </video>
+                                                    {/* Overlay to prevent right-click and selection */}
+                                                    <div 
+                                                        className="absolute inset-0 pointer-events-none"
+                                                        style={{ 
+                                                            background: 'transparent',
+                                                            userSelect: 'none',
+                                                            WebkitUserSelect: 'none',
+                                                            MozUserSelect: 'none',
+                                                            msUserSelect: 'none'
+                                                        }}
+                                                        onContextMenu={(e) => e.preventDefault()}
+                                                        onSelectStart={(e) => e.preventDefault()}
+                                                        onDragStart={(e) => e.preventDefault()}
+                                                    />
                                                 </div>
                                                 <div className="p-6 bg-background">
                                                     <h4 className="text-2xl font-bold mb-2 text-foreground">{selectedVideo.title}</h4>
@@ -608,6 +633,30 @@ const CourseDetail: FC = () => {
     };
 
     const handleVideoPlay = async (video: Video) => {
+        // Add body class for additional protection during video playback
+        document.body.classList.add('video-playing');
+        
+        // Anti-IDM protection: Disable common download manager shortcuts
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Disable F12, Ctrl+Shift+I, Ctrl+U, Ctrl+S
+            if (e.key === 'F12' || 
+                (e.ctrlKey && e.shiftKey && e.key === 'I') ||
+                (e.ctrlKey && e.key === 'u') ||
+                (e.ctrlKey && e.key === 's')) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+        };
+        
+        document.addEventListener('keydown', handleKeyDown);
+        
+        // Remove protection after 5 seconds
+        setTimeout(() => {
+            document.body.classList.remove('video-playing');
+            document.removeEventListener('keydown', handleKeyDown);
+        }, 5000);
+        
         if (!video.watched) {
             setCompletingVideoId(video.id);
             try {
