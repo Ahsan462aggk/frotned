@@ -610,6 +610,214 @@ const CourseDetail: FC = () => {
         }
     };
 
+    // Advanced Anti-IDM Extension Protection
+    useEffect(() => {
+        // Store original functions
+        const originalFetch = window.fetch;
+        const originalXHR = window.XMLHttpRequest;
+        
+        // Advanced IDM extension detection and blocking
+        const isVideoRequest = (url: string) => {
+            const urlLower = url.toLowerCase();
+            return urlLower.includes('.mp4') || 
+                   urlLower.includes('.webm') || 
+                   urlLower.includes('.avi') || 
+                   urlLower.includes('.mov') ||
+                   urlLower.includes('video') ||
+                   urlLower.includes('stream');
+        };
+
+        // Create a proxy for video URLs to hide them from IDM extensions
+        const createVideoProxy = (originalUrl: string) => {
+            // Create a blob URL that acts as a proxy
+            return fetch(originalUrl, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache'
+                }
+            })
+            .then(response => response.blob())
+            .then(blob => {
+                const blobUrl = URL.createObjectURL(blob);
+                // Store mapping for cleanup
+                (window as any).__videoProxyUrls = (window as any).__videoProxyUrls || new Map();
+                (window as any).__videoProxyUrls.set(blobUrl, originalUrl);
+                return blobUrl;
+            });
+        };
+
+        // Override fetch to intercept and obfuscate video requests
+        window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = typeof input === 'string' ? input : input.toString();
+            
+            if (isVideoRequest(url)) {
+                // Add anti-IDM headers and random delays
+                const headers = new Headers(init?.headers);
+                headers.set('X-Requested-With', 'XMLHttpRequest');
+                headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+                headers.set('Pragma', 'no-cache');
+                headers.set('Expires', '0');
+                headers.set('X-Content-Type-Options', 'nosniff');
+                headers.set('Referrer-Policy', 'no-referrer');
+                headers.set('X-Frame-Options', 'DENY');
+                
+                // Add random delay to confuse extension timing
+                await new Promise(resolve => setTimeout(resolve, Math.random() * 200 + 100));
+                
+                // Make request with obfuscated headers
+                const response = await originalFetch(input, {
+                    ...init,
+                    headers,
+                    credentials: 'same-origin',
+                    mode: 'cors'
+                });
+                
+                // Clone response to prevent IDM from intercepting the stream
+                const clonedResponse = response.clone();
+                return clonedResponse;
+            }
+            
+            return originalFetch(input, init);
+        };
+
+        // Override XMLHttpRequest to block IDM hooks
+        window.XMLHttpRequest = class extends originalXHR {
+            private _url: string = '';
+            
+            open(method: string, url: string | URL, async?: boolean, user?: string | null, password?: string | null) {
+                this._url = url.toString();
+                
+                if (isVideoRequest(this._url)) {
+                    // Add anti-IDM headers for video requests
+                    super.open(method, this._url, async, user, password);
+                    this.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                    this.setRequestHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+                    this.setRequestHeader('Pragma', 'no-cache');
+                    this.setRequestHeader('X-Content-Type-Options', 'nosniff');
+                } else {
+                    super.open(method, this._url, async, user, password);
+                }
+            }
+            
+            send(body?: Document | XMLHttpRequestBodyInit | null) {
+                if (isVideoRequest(this._url)) {
+                    // Add random delay for video requests
+                    setTimeout(() => super.send(body), Math.random() * 100);
+                } else {
+                    super.send(body);
+                }
+            }
+        };
+
+        // Detect and counter IDM extension presence
+        const detectAndCounterIDM = () => {
+            // Check for common IDM extension indicators in the DOM
+            const idmIndicators = [
+                '[id*="idm"]', '[class*="idm"]', '[data-idm]',
+                '[id*="download"]', '[class*="download-manager"]',
+                '[id*="internet-download"]', '[class*="internet-download"]'
+            ];
+            
+            const suspiciousElements = document.querySelectorAll(idmIndicators.join(', '));
+            
+            if (suspiciousElements.length > 0) {
+                console.warn('Download manager extension detected - activating enhanced protection');
+                
+                // Enhanced protection when IDM is detected
+                document.body.style.userSelect = 'none';
+                document.body.style.webkitUserSelect = 'none';
+                
+                // Hide all video elements temporarily
+                const videos = document.querySelectorAll('video');
+                videos.forEach(video => {
+                    video.style.visibility = 'hidden';
+                    setTimeout(() => {
+                        video.style.visibility = 'visible';
+                    }, 1000);
+                });
+                
+                // Add fake video elements to confuse the extension
+                const fakeVideo = document.createElement('video');
+                fakeVideo.src = 'data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAAIZnJlZQAAAKttZGF0';
+                fakeVideo.style.display = 'none';
+                document.body.appendChild(fakeVideo);
+                
+                // Remove fake element after delay
+                setTimeout(() => {
+                    document.body.removeChild(fakeVideo);
+                }, 5000);
+            }
+        };
+
+        // Monitor for IDM extension injection
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'childList') {
+                    detectAndCounterIDM();
+                }
+            });
+        });
+        
+        observer.observe(document.body, { 
+            childList: true, 
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['id', 'class', 'data-idm']
+        });
+
+        // Periodically check for IDM extension
+        const idmCheckInterval = setInterval(detectAndCounterIDM, 3000);
+
+        // Block common IDM extension communication
+        const blockIDMCommunication = () => {
+            // Block postMessage communication that IDM might use
+            const originalPostMessage = window.postMessage;
+            window.postMessage = function(message: any, targetOrigin: string, transfer?: Transferable[]) {
+                if (typeof message === 'string' && 
+                    (message.includes('idm') || message.includes('download') || message.includes('video'))) {
+                    console.warn('Blocked suspicious postMessage:', message);
+                    return;
+                }
+                return originalPostMessage.call(this, message, targetOrigin, transfer);
+            };
+
+            // Block localStorage access for IDM-related keys
+            const originalSetItem = localStorage.setItem;
+            localStorage.setItem = function(key: string, value: string) {
+                if (key.toLowerCase().includes('idm') || 
+                    key.toLowerCase().includes('download') ||
+                    value.toLowerCase().includes('.mp4') ||
+                    value.toLowerCase().includes('video')) {
+                    console.warn('Blocked suspicious localStorage access:', key);
+                    return;
+                }
+                return originalSetItem.call(this, key, value);
+            };
+        };
+
+        blockIDMCommunication();
+
+        // Initial detection
+        setTimeout(detectAndCounterIDM, 1000);
+
+        // Cleanup function
+        return () => {
+            window.fetch = originalFetch;
+            window.XMLHttpRequest = originalXHR;
+            observer.disconnect();
+            clearInterval(idmCheckInterval);
+            
+            // Cleanup proxy URLs
+            if ((window as any).__videoProxyUrls) {
+                (window as any).__videoProxyUrls.forEach((originalUrl: string, blobUrl: string) => {
+                    URL.revokeObjectURL(blobUrl);
+                });
+                delete (window as any).__videoProxyUrls;
+            }
+        };
+    }, []);
+
     const fetchPurchaseInfo = async () => {
         if (!courseId) return;
         
