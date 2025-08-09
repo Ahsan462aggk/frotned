@@ -1361,106 +1361,221 @@ const CourseDetail: FC = () => {
                         )}
                         
                         {applicationStatus === 'NOT_APPLIED' && showEnrollmentForm && (
-                            <Card className="mt-6">
-                                <CardHeader>
-                                    <CardTitle>Enrollment Application</CardTitle>
-                                    <CardDescription>Please fill in your details to apply for this course.</CardDescription>
+                            <Card className="mt-8 border-2 border-primary/20 shadow-xl bg-gradient-to-br from-background via-background to-primary/5">
+                                <CardHeader className="relative overflow-hidden">
+                                    <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent"></div>
+                                    <div className="relative z-10">
+                                        <div className="flex items-center space-x-3 mb-2">
+                                            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                                                <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                </svg>
+                                            </div>
+                                            <div>
+                                                <CardTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                                                    Enrollment Application
+                                                </CardTitle>
+                                                <CardDescription className="text-muted-foreground/80 text-base">
+                                                    Join our professional course and advance your career
+                                                </CardDescription>
+                                            </div>
+                                        </div>
+                                        <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                                            <div className="flex items-start space-x-3">
+                                                <div className="flex-shrink-0">
+                                                    <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" fill="currentColor" viewBox="0 0 24 24">
+                                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                                    </svg>
+                                                </div>
+                                                <div>
+                                                    <h4 className="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-1">Application Requirements</h4>
+                                                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                                                        Please provide accurate information and upload your qualification certificate. All applications are reviewed within 24-48 hours.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </CardHeader>
-                                <CardContent>
-                                    <form onSubmit={handleFormSubmit} className="space-y-4">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <Label htmlFor="first_name">First Name *</Label>
+                                <CardContent className="p-8">
+                                    <form onSubmit={handleFormSubmit} className="space-y-6">
+                                        {/* Personal Information Section */}
+                                        <div className="space-y-4">
+                                            <div className="flex items-center space-x-2 mb-4">
+                                                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                                                    <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                    </svg>
+                                                </div>
+                                                <h3 className="text-lg font-semibold text-foreground">Personal Information</h3>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="first_name" className="text-sm font-medium text-foreground flex items-center">
+                                                        First Name
+                                                        <span className="text-red-500 ml-1">*</span>
+                                                    </Label>
+                                                    <Input
+                                                        id="first_name"
+                                                        value={enrollmentForm.first_name}
+                                                        onChange={(e) => handleInputChange('first_name', e.target.value)}
+                                                        placeholder="Enter your first name"
+                                                        className="h-12 border-2 border-border/50 focus:border-primary transition-colors"
+                                                        required
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="last_name" className="text-sm font-medium text-foreground flex items-center">
+                                                        Last Name
+                                                        <span className="text-red-500 ml-1">*</span>
+                                                    </Label>
+                                                    <Input
+                                                        id="last_name"
+                                                        value={enrollmentForm.last_name}
+                                                        onChange={(e) => handleInputChange('last_name', e.target.value)}
+                                                        placeholder="Enter your last name"
+                                                        className="h-12 border-2 border-border/50 focus:border-primary transition-colors"
+                                                        required
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="contact_number" className="text-sm font-medium text-foreground flex items-center">
+                                                    Contact Number
+                                                    <span className="text-red-500 ml-1">*</span>
+                                                </Label>
                                                 <Input
-                                                    id="first_name"
-                                                    value={enrollmentForm.first_name}
-                                                    onChange={(e) => handleInputChange('first_name', e.target.value)}
+                                                    id="contact_number"
+                                                    value={enrollmentForm.contact_number}
+                                                    onChange={(e) => handleInputChange('contact_number', e.target.value)}
+                                                    placeholder="e.g., +1 (555) 123-4567"
+                                                    className="h-12 border-2 border-border/50 focus:border-primary transition-colors"
                                                     required
                                                 />
                                             </div>
-                                            <div>
-                                                <Label htmlFor="last_name">Last Name *</Label>
+                                        </div>
+
+                                        {/* Professional Background Section */}
+                                        <div className="space-y-4 pt-6 border-t border-border/50">
+                                            <div className="flex items-center space-x-2 mb-4">
+                                                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                                                    <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                                    </svg>
+                                                </div>
+                                                <h3 className="text-lg font-semibold text-foreground">Professional Background</h3>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="qualification" className="text-sm font-medium text-foreground flex items-center">
+                                                    Educational Qualification
+                                                    <span className="text-red-500 ml-1">*</span>
+                                                </Label>
                                                 <Input
-                                                    id="last_name"
-                                                    value={enrollmentForm.last_name}
-                                                    onChange={(e) => handleInputChange('last_name', e.target.value)}
+                                                    id="qualification"
+                                                    value={enrollmentForm.qualification}
+                                                    onChange={(e) => handleInputChange('qualification', e.target.value)}
+                                                    placeholder="e.g., Bachelor's in Medical Imaging, MD, RN, etc."
+                                                    className="h-12 border-2 border-border/50 focus:border-primary transition-colors"
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="ultrasound_experience" className="text-sm font-medium text-foreground flex items-center">
+                                                    Ultrasound Experience
+                                                    <span className="text-red-500 ml-1">*</span>
+                                                </Label>
+                                                <Textarea
+                                                    id="ultrasound_experience"
+                                                    value={enrollmentForm.ultrasound_experience}
+                                                    onChange={(e) => handleInputChange('ultrasound_experience', e.target.value)}
+                                                    placeholder="Please describe your experience with ultrasound technology, including years of experience, types of procedures, and relevant training..."
+                                                    className="min-h-[120px] border-2 border-border/50 focus:border-primary transition-colors resize-none"
                                                     required
                                                 />
                                             </div>
                                         </div>
-                                        
-                                        <div>
-                                            <Label htmlFor="qualification">Qualification *</Label>
-                                            <Input
-                                                id="qualification"
-                                                value={enrollmentForm.qualification}
-                                                onChange={(e) => handleInputChange('qualification', e.target.value)}
-                                                placeholder="e.g., Bachelor's in Medical Imaging"
-                                                required
-                                            />
-                                        </div>
-                                        
-                                        <div>
-                                            <Label htmlFor="ultrasound_experience">Ultrasound Experience *</Label>
-                                            <Textarea
-                                                id="ultrasound_experience"
-                                                value={enrollmentForm.ultrasound_experience}
-                                                onChange={(e) => handleInputChange('ultrasound_experience', e.target.value)}
-                                                placeholder="Describe your experience with ultrasound technology"
-                                                required
-                                            />
-                                        </div>
-                                        
-                                        <div>
-                                            <Label htmlFor="contact_number">Contact Number *</Label>
-                                            <Input
-                                                id="contact_number"
-                                                value={enrollmentForm.contact_number}
-                                                onChange={(e) => handleInputChange('contact_number', e.target.value)}
-                                                placeholder="+1234567890"
-                                                required
-                                            />
-                                        </div>
-                                        
-                                        <div>
-                                            <Label htmlFor="qualification_certificate">Qualification Certificate *</Label>
-                                            <div className="flex items-center space-x-2">
-                                                <Input
-                                                    id="qualification_certificate"
-                                                    type="file"
-                                                    accept="image/*,.pdf"
-                                                    onChange={handleFileChange}
-                                                    ref={fileInputRef}
-                                                    required
-                                                />
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    onClick={() => fileInputRef.current?.click()}
-                                                >
-                                                    <Upload className="h-4 w-4" />
-                                                </Button>
+
+                                        {/* Document Upload Section */}
+                                        <div className="space-y-4 pt-6 border-t border-border/50">
+                                            <div className="flex items-center space-x-2 mb-4">
+                                                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                                                    <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                                    </svg>
+                                                </div>
+                                                <h3 className="text-lg font-semibold text-foreground">Document Upload</h3>
                                             </div>
-                                            {enrollmentForm.qualification_certificate && (
-                                                <p className="text-sm text-green-600 mt-1">
-                                                    File selected: {enrollmentForm.qualification_certificate.name}
-                                                </p>
-                                            )}
+                                            <div className="space-y-2">
+                                                <Label htmlFor="qualification_certificate" className="text-sm font-medium text-foreground flex items-center">
+                                                    Qualification Certificate
+                                                    <span className="text-red-500 ml-1">*</span>
+                                                </Label>
+                                                <div className="border-2 border-dashed border-border/50 rounded-lg p-6 hover:border-primary/50 transition-colors">
+                                                    <div className="text-center">
+                                                        <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                                                        <div className="flex flex-col sm:flex-row gap-2 items-center justify-center">
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                onClick={() => fileInputRef.current?.click()}
+                                                                className="border-primary/50 text-primary hover:bg-primary/10"
+                                                            >
+                                                                <Upload className="h-4 w-4 mr-2" />
+                                                                Choose File
+                                                            </Button>
+                                                            <span className="text-sm text-muted-foreground">
+                                                                or drag and drop
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-xs text-muted-foreground mt-2">
+                                                            PDF, PNG, JPG up to 10MB
+                                                        </p>
+                                                    </div>
+                                                    <Input
+                                                        id="qualification_certificate"
+                                                        type="file"
+                                                        accept="image/*,.pdf"
+                                                        onChange={handleFileChange}
+                                                        ref={fileInputRef}
+                                                        className="hidden"
+                                                        required
+                                                    />
+                                                </div>
+                                                {enrollmentForm.qualification_certificate && (
+                                                    <div className="mt-3 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+                                                        <div className="flex items-center space-x-2">
+                                                            <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                                                            <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                                                                File uploaded successfully
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+                                                            {enrollmentForm.qualification_certificate.name}
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                        
-                                        <div className="flex space-x-2">
+
+                                        {/* Action Buttons */}
+                                        <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-border/50">
                                             <Button
                                                 type="submit"
                                                 disabled={isSubmitting}
-                                                className="flex-1"
+                                                className="flex-1 h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 shadow-lg hover:shadow-xl transition-all duration-200"
                                             >
                                                 {isSubmitting ? (
                                                     <>
-                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                        Submitting...
+                                                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                                                        Submitting Application...
                                                     </>
                                                 ) : (
-                                                    'Submit Application'
+                                                    <>
+                                                        <svg className="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                                        </svg>
+                                                        Submit Application
+                                                    </>
                                                 )}
                                             </Button>
                                             <Button
@@ -1468,6 +1583,7 @@ const CourseDetail: FC = () => {
                                                 variant="outline"
                                                 onClick={() => setShowEnrollmentForm(false)}
                                                 disabled={isSubmitting}
+                                                className="h-12 px-8 border-2 border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-colors"
                                             >
                                                 Cancel
                                             </Button>
