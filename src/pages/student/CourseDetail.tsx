@@ -212,7 +212,17 @@ const PaymentStatusCard: FC<{
                                             <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
                                                 <path d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 16h2v2h-2v-2zm0-6h2v4h-2v-4z"/>
                                             </svg>
-                                            <span><strong>Critical:</strong> Security protection is active for the entire session. Any attempt to navigate away will result in immediate logout.</span>
+                                            <span><strong>Security Active:</strong> Tab switching and extension access detection is enabled. Fullscreen mode is fully supported and will not trigger security violations.</span>
+                                        </p>
+                                    </div>
+                                    
+                                    {/* Anti-Download Warning */}
+                                    <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                                        <p className="text-sm text-red-800 flex items-center">
+                                            <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 16h2v2h-2v-2zm0-6h2v4h-2v-4z"/>
+                                            </svg>
+                                            <span><strong>Download Protection:</strong> Video downloading, recording, or capturing is strictly prohibited. Violations will result in account suspension and legal action.</span>
                                         </p>
                                     </div>
                                 </div>
@@ -240,7 +250,6 @@ const PaymentStatusCard: FC<{
                                                         controls
                                                         autoPlay
                                                         controlsList="nodownload noremoteplayback noplaybackrate"
-                                                        allowFullScreen
                                                         disablePictureInPicture
                                                         disableRemotePlayback
                                                         onContextMenu={(e) => e.preventDefault()}
@@ -256,11 +265,13 @@ const PaymentStatusCard: FC<{
                                                             
                                                             const videoElement = e.target as HTMLVideoElement;
                                                             let securityActive = true;
+                                                            let isEnteringFullscreen = false;
                                                             
                                                             const handleSecurityViolation = async () => {
                                                                 if (!securityActive) return; // Prevent multiple triggers
                                                                 
                                                                 console.warn('Security violation detected - showing warning');
+                                                            
                                                                 securityActive = false;
                                                                 
                                                                 // Show immediate security warning popup
@@ -347,15 +358,23 @@ const PaymentStatusCard: FC<{
                                                                 }, 3000); // 3 second delay
                                                              };
 
-                                                             // 1. Tab switching detection - Active during entire video session (including pause)
+                                                             // 1. Tab switching detection - Active during entire video session (excluding fullscreen mode)
                                                              const handleTabVisibilityChange = () => {
-                                                                 if (securityActive && !videoElement.ended) {
-                                                                     if (document.hidden || document.visibilityState === 'hidden') {
-                                                                         console.warn('Tab switch detected during video session (including pause)');
-                                                                         handleSecurityViolation();
-                                                                     }
-                                                                 }
-                                                             };
+                                                                  // Check if document is in fullscreen mode (any element)
+                                                                  const isInFullscreen = !!(document.fullscreenElement || 
+                                                                                           (document as any).webkitFullscreenElement || 
+                                                                                           (document as any).mozFullScreenElement || 
+                                                                                           (document as any).msFullscreenElement);
+                                                                  
+                                                                  if (securityActive && !videoElement.ended && !isInFullscreen) {
+                                                                      if (document.hidden || document.visibilityState === 'hidden') {
+                                                                          console.warn('Tab switch detected during video session (not in fullscreen)');
+                                                                          handleSecurityViolation();
+                                                                      }
+                                                                  } else if (isInFullscreen) {
+                                                                      console.log('Fullscreen mode detected - security detection disabled');
+                                                                  }
+                                                              };
 
                                                              // 2. Extension icon access detection - Active during entire video session (including pause)
                                                              const detectExtensionAccess = () => {
@@ -413,43 +432,141 @@ const PaymentStatusCard: FC<{
                                                                     // Add all event listeners
                                                                     document.addEventListener('mousemove', handleMouseMove);
                                                                     window.addEventListener('blur', handleFocusLoss);
-                                                                    window.addEventListener('resize', handleWindowResize);
                                                                     
                                                                     // Monitor focus changes more aggressively
-                                                                    const focusMonitor = setInterval(() => {
-                                                                        if (securityActive && !document.hasFocus()) {
-                                                                            const wasInExtensionArea = lastMousePosition.y < 70;
-                                                                            if (wasInExtensionArea) {
-                                                                                console.warn('Focus monitoring detected extension interaction');
-                                                                                handleSecurityViolation();
-                                                                            }
-                                                                        }
-                                                                    }, 200); // Check every 200ms
-                                                                    
-                                                                    // Cleanup listeners after 30 seconds
-                                                                    setTimeout(() => {
-                                                                        document.removeEventListener('mousemove', handleMouseMove);
-                                                                        window.removeEventListener('blur', handleFocusLoss);
-                                                                        window.removeEventListener('resize', handleWindowResize);
-                                                                        clearInterval(focusMonitor);
-                                                                    }, 30000);
-                                                                }
-                                                            };
+                                                                     const focusMonitor = setInterval(() => {
+                                                                         if (securityActive && !document.hasFocus()) {
+                                                                             const wasInExtensionArea = lastMousePosition.y < 70;
+                                                                             if (wasInExtensionArea) {
+                                                                                 console.warn('Focus monitoring detected extension interaction');
+                                                                                 handleSecurityViolation();
+                                                                             }
+                                                                         }
+                                                                     }, 200); // Check every 200ms
+                                                                     
+                                                                     // Cleanup listeners after 30 seconds
+                                                                     setTimeout(() => {
+                                                                         document.removeEventListener('mousemove', handleMouseMove);
+                                                                         window.removeEventListener('blur', handleFocusLoss);
+                                                                         clearInterval(focusMonitor);
+                                                                     }, 30000);
+                                                                 }
+                                                             };
 
-                                                            // Add event listeners
-                                                            document.addEventListener('visibilitychange', handleTabVisibilityChange);
-                                                            window.addEventListener('blur', handleTabVisibilityChange);
-                                                            
-                                                            // Activate extension detection
-                                                            detectExtensionAccess();
+                                                              // Proactive fullscreen detection to prevent false security violations
+                                                              const handleFullscreenChange = () => {
+                                                                  const isFullscreen = !!(document.fullscreenElement || 
+                                                                                         (document as any).webkitFullscreenElement || 
+                                                                                         (document as any).mozFullScreenElement || 
+                                                                                         (document as any).msFullscreenElement);
+                                                                  
+                                                                  if (isFullscreen) {
+                                                                      console.log('Fullscreen entered - security detection disabled');
+                                                                      isEnteringFullscreen = false; // Security can be active in fullscreen
+                                                                  } else {
+                                                                      console.log('Fullscreen exited - temporarily disabling security detection');
+                                                                      isEnteringFullscreen = true;
+                                                                      // Reset flag after exit transition
+                                                                      setTimeout(() => {
+                                                                          isEnteringFullscreen = false;
+                                                                          console.log('Fullscreen exit complete - security detection re-enabled');
+                                                                      }, 1500);
+                                                                  }
+                                                              };
 
-                                                            // Cleanup function
-                                                            const cleanup = () => {
-                                                                console.log('Video security deactivated');
-                                                                securityActive = false;
-                                                                document.removeEventListener('visibilitychange', handleTabVisibilityChange);
-                                                                window.removeEventListener('blur', handleTabVisibilityChange);
-                                                            };
+                                                             // Detect fullscreen requests proactively (before visibility change)
+                                                             const interceptFullscreenRequests = () => {
+                                                                 // Override video element fullscreen methods
+                                                                 const originalRequestFullscreen = videoElement.requestFullscreen;
+                                                                 const originalWebkitRequestFullscreen = (videoElement as any).webkitRequestFullscreen;
+                                                                 const originalMozRequestFullScreen = (videoElement as any).mozRequestFullScreen;
+                                                                 const originalMsRequestFullscreen = (videoElement as any).msRequestFullscreen;
+
+                                                                 // Intercept standard requestFullscreen
+                                                                 if (originalRequestFullscreen) {
+                                                                     videoElement.requestFullscreen = function() {
+                                                                         console.log('Fullscreen request detected - disabling security for transition');
+                                                                         isEnteringFullscreen = true;
+                                                                         setTimeout(() => isEnteringFullscreen = false, 3000);
+                                                                         return originalRequestFullscreen.call(this);
+                                                                     };
+                                                                 }
+
+                                                                 // Intercept webkit requestFullscreen
+                                                                 if (originalWebkitRequestFullscreen) {
+                                                                     (videoElement as any).webkitRequestFullscreen = function() {
+                                                                         console.log('Webkit fullscreen request detected - disabling security for transition');
+                                                                         isEnteringFullscreen = true;
+                                                                         setTimeout(() => isEnteringFullscreen = false, 3000);
+                                                                         return originalWebkitRequestFullscreen.call(this);
+                                                                     };
+                                                                 }
+
+                                                                 // Intercept moz requestFullScreen
+                                                                 if (originalMozRequestFullScreen) {
+                                                                     (videoElement as any).mozRequestFullScreen = function() {
+                                                                         console.log('Moz fullscreen request detected - disabling security for transition');
+                                                                         isEnteringFullscreen = true;
+                                                                         setTimeout(() => isEnteringFullscreen = false, 3000);
+                                                                         return originalMozRequestFullScreen.call(this);
+                                                                     };
+                                                                 }
+
+                                                                 // Intercept ms requestFullscreen
+                                                                 if (originalMsRequestFullscreen) {
+                                                                     (videoElement as any).msRequestFullscreen = function() {
+                                                                         console.log('MS fullscreen request detected - disabling security for transition');
+                                                                         isEnteringFullscreen = true;
+                                                                         setTimeout(() => isEnteringFullscreen = false, 3000);
+                                                                         return originalMsRequestFullscreen.call(this);
+                                                                     };
+                                                                 }
+                                                             };
+
+                                                             // Set up fullscreen request interception
+                                                             interceptFullscreenRequests();
+
+                                                             // Also detect double-click fullscreen attempts
+                                                             videoElement.addEventListener('dblclick', () => {
+                                                                 console.log('Double-click detected - likely fullscreen request, disabling security');
+                                                                 isEnteringFullscreen = true;
+                                                                 setTimeout(() => isEnteringFullscreen = false, 3000);
+                                                             });
+
+                                                             // Detect F11 key press for fullscreen
+                                                             const handleKeyPress = (e: KeyboardEvent) => {
+                                                                 if (e.key === 'F11') {
+                                                                     console.log('F11 detected - fullscreen request, disabling security');
+                                                                     isEnteringFullscreen = true;
+                                                                     setTimeout(() => isEnteringFullscreen = false, 3000);
+                                                                 }
+                                                             };
+
+                                                             // Add event listeners
+                                                             document.addEventListener('visibilitychange', handleTabVisibilityChange);
+                                                             window.addEventListener('blur', handleTabVisibilityChange);
+                                                             document.addEventListener('fullscreenchange', handleFullscreenChange);
+                                                             document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+                                                             document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+                                                             document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+                                                             document.addEventListener('keydown', handleKeyPress);
+                                                             
+                                                             // Activate extension detection
+                                                             detectExtensionAccess();
+
+                                                             // Cleanup function
+                                                             const cleanup = () => {
+                                                                 console.log('Video security deactivated');
+                                                                 securityActive = false;
+                                                                 document.removeEventListener('visibilitychange', handleTabVisibilityChange);
+                                                                 window.removeEventListener('blur', handleTabVisibilityChange);
+                                                                 document.removeEventListener('fullscreenchange', handleFullscreenChange);
+                                                                 document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+                                                                 document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+                                                                 document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+                                                                 document.removeEventListener('keydown', handleKeyPress);
+                                                                 // Note: Video element event listeners (dblclick) are automatically cleaned up when element is removed
+                                                             };
 
                                                             // Cleanup only on video end (NOT on pause - security stays active during pause)
                                                         
@@ -477,9 +594,9 @@ const PaymentStatusCard: FC<{
                                                     >
                                                         Your browser does not support the video tag.
                                                     </video>
-                                                    {/* Overlay to prevent right-click and selection */}
-                                                    <div 
-                                                        className="absolute inset-0 pointer-events-none"
+                                                     {/* Overlay to prevent right-click and selection */}
+                                                     <div 
+                                                         className="absolute inset-0 pointer-events-none"
                                                         style={{ 
                                                             background: 'transparent',
                                                             userSelect: 'none',
