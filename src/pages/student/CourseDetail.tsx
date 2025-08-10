@@ -11,7 +11,7 @@ import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Badge } from '@/components/ui/badge';
 import '@/styles/video-protection.css';
-
+import ReactPlayer from 'react-player'; 
 // --- INTERFACES ---
 interface CourseInfo {
     id: string;
@@ -249,40 +249,14 @@ const PaymentStatusCard: FC<{
                                                         className="w-full h-full rounded-t-lg video-protected"
                                                         controls
                                                         autoPlay
-                                                        preload="metadata"
-                                                        playsInline
                                                         controlsList="nodownload noremoteplayback noplaybackrate"
                                                         disablePictureInPicture
                                                         disableRemotePlayback
                                                         onContextMenu={(e) => e.preventDefault()}
                                                         onSelectStart={(e) => e.preventDefault()}
                                                         onDragStart={(e) => e.preventDefault()}
-                                                        src={selectedVideo.cloudinary_url}
-                                                        poster="https://placehold.co/800x450/000000/FFFFFF?text=Loading+Video"
-                                                        onLoadedMetadata={(e) => {
-                                                            const video = e.target as HTMLVideoElement;
-                                                            // Optimize for instant playback
-                                                            video.preload = 'auto';
-                                                            
-                                                            // Pre-buffer the first few seconds for instant start
-                                                            if (video.buffered.length === 0) {
-                                                                video.currentTime = 0.1; // Small seek to trigger buffering
-                                                                video.currentTime = 0; // Reset to start
-                                                            }
-                                                            
-                                                            console.log('Video ready for instant playback:', {
-                                                                duration: video.duration,
-                                                                buffered: video.buffered.length > 0 ? video.buffered.end(0) : 0
-                                                            });
-                                                        }}
-                                                        onError={(e) => {
-                                                            const video = e.target as HTMLVideoElement;
-                                                            console.error('Video error:', video.error);
-                                                            toast.error('Video failed to load. Please try again.');
-                                                        }}
-                                                        onWaiting={() => {
-                                                            console.log('Video buffering...');
-                                                        }}
+                                                        ref={videoRef}
+                                                        poster="https://placehold.co/800x450/000000/FFFFFF?text=Video+Player"
                                                         onPlay={(e) => {
                                                             handleVideoPlay(selectedVideo);
                                                             
@@ -1302,6 +1276,42 @@ const CourseDetail: FC = () => {
     const handleVideoSelect = (video: Video) => {
         setSelectedVideo(video);
     };
+
+    // Load secure video URL when video is selected
+    useEffect(() => {
+        const loadVideoUrl = async () => {
+            if (selectedVideo && videoRef.current) {
+                try {
+                    // Get secure video URL from backend
+                    const response = await fetchWithAuth(`/api/videos/${selectedVideo.id}/stream`);
+                    
+                    // The backend returns a redirect, but fetchWithAuth follows it automatically
+                    // So we should get the final secure URL in the response
+                    if (response.url) {
+                        videoRef.current.src = response.url;
+                    } else {
+                        // Fallback: use the original cloudinary_url
+                        videoRef.current.src = selectedVideo.cloudinary_url;
+                    }
+                    
+                    // Try to play the video
+                    videoRef.current.play().catch(error => {
+                        console.log("Autoplay was prevented by the browser.", error);
+                    });
+                    
+                } catch (error) {
+                    console.error('Failed to load secure video URL:', error);
+                    // Fallback: use the original cloudinary_url
+                    if (videoRef.current) {
+                        videoRef.current.src = selectedVideo.cloudinary_url;
+                    }
+                    toast.error('Failed to load secure video. Using fallback URL.');
+                }
+            }
+        };
+
+        loadVideoUrl();
+    }, [selectedVideo]);
 
     const handleVideoToggleWatched = async (video: Video) => {
         setCompletingVideoId(video.id);
