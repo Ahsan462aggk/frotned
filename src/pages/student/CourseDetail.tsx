@@ -247,7 +247,7 @@ const PaymentStatusCard: FC<{
                                             <div>
                                                 <div className="aspect-video bg-black rounded-t-lg relative">
                                                     <ReactPlayer
-                                                        src={selectedVideo.cloudinary_url}
+                                                        url={selectedVideo.cloudinary_url}
                                                         className="w-full h-full rounded-t-lg video-protected"
                                                         width="100%"
                                                         height="100%"
