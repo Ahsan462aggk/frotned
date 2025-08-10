@@ -25,7 +25,7 @@ const CourseCard: React.FC<CourseCardProps> = ({ course }) => {
       </div>
       <div className="p-4 flex flex-col flex-grow">
         <h3 className="text-xl font-bold mb-2 truncate flex-grow text-foreground">{course.title}</h3>
-        <p className="text-primary text-lg font-semibold mb-4">{course.price}</p>
+        <p className="text-primary text-lg font-semibold mb-4">${course.price}</p>
         <Link to={`/student/courses/${course.id}`} className="mt-auto">
           <Button className="w-full bg-primary hover:bg-primary/90 text-white">Details</Button>
         </Link>
