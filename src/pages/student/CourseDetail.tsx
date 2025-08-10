@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import Hls from 'hls.js';
 import { Loader2, AlertCircle, Upload, Play, CheckCircle, Circle } from 'lucide-react';
 import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
 import DashboardLayout from '@/components/DashboardLayout';
@@ -31,7 +30,7 @@ interface CourseInfo {
 
 interface Video {
     id: string;
-    streaming_url: string;
+    cloudinary_url: string;
     title: string;
     description: string;
     watched: boolean;
@@ -250,51 +249,13 @@ const PaymentStatusCard: FC<{
                                                         className="w-full h-full rounded-t-lg video-protected"
                                                         controls
                                                         autoPlay
-                                                        muted
-                                                        playsInline
-                                                        preload="none"
-                                                        crossOrigin="anonymous"
-                                                        onLoadStart={() => {
-                                                            console.log('Video loading started - optimizing buffer...');
-                                                            const videoElement = document.querySelector('video') as HTMLVideoElement;
-                                                            
-                                                            // Optimize video buffer for faster playback
-                                                            if (videoElement) {
-                                                                // Set optimal buffer size for smooth playback
-                                                                videoElement.addEventListener('progress', () => {
-                                                                    const buffered = videoElement.buffered;
-                                                                    if (buffered.length > 0) {
-                                                                        const bufferedEnd = buffered.end(buffered.length - 1);
-                                                                        const duration = videoElement.duration;
-                                                                        const bufferedPercent = (bufferedEnd / duration) * 100;
-                                                                        
-                                                                        // Start playing when 5% is buffered (instead of waiting for more)
-                                                                        if (bufferedPercent >= 5 && videoElement.paused && videoElement.readyState >= 3) {
-                                                                            console.log(`Video ${bufferedPercent.toFixed(1)}% buffered - ready for smooth playback`);
-                                                                        }
-                                                                    }
-                                                                });
-                                                            }
-                                                            
-                                                            // Preload next video in background for instant switching
-                                                            const currentIndex = videos.findIndex(v => v.id === selectedVideo.id);
-                                                            const nextVideo = videos[currentIndex + 1];
-                                                            if (nextVideo && nextVideo.cloudinary_url) {
-                                                                const prefetchVideo = document.createElement('link');
-                                                                prefetchVideo.rel = 'prefetch';
-                                                                prefetchVideo.href = nextVideo.cloudinary_url;
-                                                                prefetchVideo.as = 'video';
-                                                                document.head.appendChild(prefetchVideo);
-                                                                console.log('Prefetching next video for instant switching');
-                                                            }
-                                                        }}
                                                         controlsList="nodownload noremoteplayback noplaybackrate"
                                                         disablePictureInPicture
                                                         disableRemotePlayback
-                                                        onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
-                                                        onSelectStart={(e: React.SyntheticEvent) => e.preventDefault()}
-                                                        onDragStart={(e: React.DragEvent) => e.preventDefault()}
-                                                        
+                                                        onContextMenu={(e) => e.preventDefault()}
+                                                        onSelectStart={(e) => e.preventDefault()}
+                                                        onDragStart={(e) => e.preventDefault()}
+                                                        src={selectedVideo.cloudinary_url}
                                                         poster="https://placehold.co/800x450/000000/FFFFFF?text=Video+Player"
                                                         onPlay={(e) => {
                                                             handleVideoPlay(selectedVideo);
@@ -643,7 +604,7 @@ const PaymentStatusCard: FC<{
                                                             MozUserSelect: 'none',
                                                             msUserSelect: 'none'
                                                         }}
-                                                        onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
+                                                        onContextMenu={(e) => e.preventDefault()}
                                                         onSelectStart={(e) => e.preventDefault()}
                                                         onDragStart={(e) => e.preventDefault()}
                                                     />
@@ -918,28 +879,9 @@ const CourseDetail: FC = () => {
 
     useEffect(() => {
         if (selectedVideo && videoRef.current) {
-            const video = videoRef.current;
-            let hls: Hls | null = null;
-
-            if (Hls.isSupported()) {
-                hls = new Hls();
-                hls.loadSource(selectedVideo.streaming_url);
-                hls.attachMedia(video);
-                hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                    video.play().catch((e: any) => console.error('Autoplay was prevented.', e));
-                });
-            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                video.src = selectedVideo.streaming_url;
-                video.addEventListener('loadedmetadata', () => {
-                    video.play().catch((e: any) => console.error('Autoplay was prevented.', e));
-                });
-            }
-
-            return () => {
-                if (hls) {
-                    hls.destroy();
-                }
-            };
+            videoRef.current.play().catch(error => {
+                console.log("Autoplay was prevented by the browser.", error);
+            });
         }
     }, [selectedVideo]);
 
