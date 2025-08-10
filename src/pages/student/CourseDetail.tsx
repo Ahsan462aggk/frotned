@@ -251,9 +251,30 @@ const PaymentStatusCard: FC<{
                                                         autoPlay
                                                         muted
                                                         playsInline
-                                                        preload="metadata"
+                                                        preload="none"
                                                         crossOrigin="anonymous"
                                                         onLoadStart={() => {
+                                                            console.log('Video loading started - optimizing buffer...');
+                                                            const videoElement = document.querySelector('video') as HTMLVideoElement;
+                                                            
+                                                            // Optimize video buffer for faster playback
+                                                            if (videoElement) {
+                                                                // Set optimal buffer size for smooth playback
+                                                                videoElement.addEventListener('progress', () => {
+                                                                    const buffered = videoElement.buffered;
+                                                                    if (buffered.length > 0) {
+                                                                        const bufferedEnd = buffered.end(buffered.length - 1);
+                                                                        const duration = videoElement.duration;
+                                                                        const bufferedPercent = (bufferedEnd / duration) * 100;
+                                                                        
+                                                                        // Start playing when 5% is buffered (instead of waiting for more)
+                                                                        if (bufferedPercent >= 5 && videoElement.paused && videoElement.readyState >= 3) {
+                                                                            console.log(`Video ${bufferedPercent.toFixed(1)}% buffered - ready for smooth playback`);
+                                                                        }
+                                                                    }
+                                                                });
+                                                            }
+                                                            
                                                             // Preload next video in background for instant switching
                                                             const currentIndex = videos.findIndex(v => v.id === selectedVideo.id);
                                                             const nextVideo = videos[currentIndex + 1];
