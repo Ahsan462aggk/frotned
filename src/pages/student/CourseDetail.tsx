@@ -11,7 +11,6 @@ import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Badge } from '@/components/ui/badge';
 import '@/styles/video-protection.css';
-import ReactPlayer from 'react-player';
 
 // --- INTERFACES ---
 interface CourseInfo {
@@ -246,26 +245,45 @@ const PaymentStatusCard: FC<{
                                         {selectedVideo ? (
                                             <div>
                                                 <div className="aspect-video bg-black rounded-t-lg relative">
-                                                    <ReactPlayer
-                                                        url={selectedVideo.cloudinary_url}
+                                                    <video
                                                         className="w-full h-full rounded-t-lg video-protected"
-                                                        width="100%"
-                                                        height="100%"
-                                                        controls={true}
-                                                        playing={false}
-                                                        muted={true}
-                                                        pip={false}
-                                                        playsinline={true}
-                                                        config={{
-                                                            file: {
-                                                                attributes: {
-                                                                    crossOrigin: 'anonymous',
-                                                                    controlsList: 'nodownload noremoteplayback',
-                                                                    disablePictureInPicture: true,
-                                                                }
+                                                        controls
+                                                        autoPlay
+                                                        preload="metadata"
+                                                        playsInline
+                                                        controlsList="nodownload noremoteplayback noplaybackrate"
+                                                        disablePictureInPicture
+                                                        disableRemotePlayback
+                                                        onContextMenu={(e) => e.preventDefault()}
+                                                        onSelectStart={(e) => e.preventDefault()}
+                                                        onDragStart={(e) => e.preventDefault()}
+                                                        src={selectedVideo.cloudinary_url}
+                                                        poster="https://placehold.co/800x450/000000/FFFFFF?text=Loading+Video"
+                                                        onLoadedMetadata={(e) => {
+                                                            const video = e.target as HTMLVideoElement;
+                                                            // Optimize for instant playback
+                                                            video.preload = 'auto';
+                                                            
+                                                            // Pre-buffer the first few seconds for instant start
+                                                            if (video.buffered.length === 0) {
+                                                                video.currentTime = 0.1; // Small seek to trigger buffering
+                                                                video.currentTime = 0; // Reset to start
                                                             }
+                                                            
+                                                            console.log('Video ready for instant playback:', {
+                                                                duration: video.duration,
+                                                                buffered: video.buffered.length > 0 ? video.buffered.end(0) : 0
+                                                            });
                                                         }}
-                                                        onPlay={() => {
+                                                        onError={(e) => {
+                                                            const video = e.target as HTMLVideoElement;
+                                                            console.error('Video error:', video.error);
+                                                            toast.error('Video failed to load. Please try again.');
+                                                        }}
+                                                        onWaiting={() => {
+                                                            console.log('Video buffering...');
+                                                        }}
+                                                        onPlay={(e) => {
                                                             handleVideoPlay(selectedVideo);
                                                             
                                                             // Targeted video security - only tab switching and extension access
@@ -599,7 +617,9 @@ const PaymentStatusCard: FC<{
                                                                 video.crossOrigin = 'anonymous';
                                                             }
                                                         }}
-                                                    />
+                                                    >
+                                                        Your browser does not support the video tag.
+                                                    </video>
                                                      {/* Overlay to prevent right-click and selection */}
                                                      <div 
                                                          className="absolute inset-0 pointer-events-none"
