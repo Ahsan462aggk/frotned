@@ -11,6 +11,7 @@ import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Badge } from '@/components/ui/badge';
 import '@/styles/video-protection.css';
+import ReactPlayer from 'react-player';
 
 // --- INTERFACES ---
 interface CourseInfo {
@@ -245,19 +246,26 @@ const PaymentStatusCard: FC<{
                                         {selectedVideo ? (
                                             <div>
                                                 <div className="aspect-video bg-black rounded-t-lg relative">
-                                                    <video
-                                                        className="w-full h-full rounded-t-lg video-protected"
-                                                        controls
-                                                        autoPlay
-                                                        controlsList="nodownload noremoteplayback noplaybackrate"
-                                                        disablePictureInPicture
-                                                        disableRemotePlayback
-                                                        onContextMenu={(e) => e.preventDefault()}
-                                                        onSelectStart={(e) => e.preventDefault()}
-                                                        onDragStart={(e) => e.preventDefault()}
+                                                    <ReactPlayer
                                                         src={selectedVideo.cloudinary_url}
-                                                        poster="https://placehold.co/800x450/000000/FFFFFF?text=Video+Player"
-                                                        onPlay={(e) => {
+                                                        className="w-full h-full rounded-t-lg video-protected"
+                                                        width="100%"
+                                                        height="100%"
+                                                        controls={true}
+                                                        playing={false}
+                                                        muted={true}
+                                                        pip={false}
+                                                        playsinline={true}
+                                                        config={{
+                                                            file: {
+                                                                attributes: {
+                                                                    crossOrigin: 'anonymous',
+                                                                    controlsList: 'nodownload noremoteplayback',
+                                                                    disablePictureInPicture: true,
+                                                                }
+                                                            }
+                                                        }}
+                                                        onPlay={() => {
                                                             handleVideoPlay(selectedVideo);
                                                             
                                                             // Targeted video security - only tab switching and extension access
@@ -591,9 +599,7 @@ const PaymentStatusCard: FC<{
                                                                 video.crossOrigin = 'anonymous';
                                                             }
                                                         }}
-                                                    >
-                                                        Your browser does not support the video tag.
-                                                    </video>
+                                                    />
                                                      {/* Overlay to prevent right-click and selection */}
                                                      <div 
                                                          className="absolute inset-0 pointer-events-none"
