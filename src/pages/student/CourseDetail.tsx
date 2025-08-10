@@ -1282,30 +1282,84 @@ const CourseDetail: FC = () => {
         const loadVideoUrl = async () => {
             if (selectedVideo && videoRef.current) {
                 try {
-                    // Get secure video URL from backend
-                    const response = await fetchWithAuth(`/api/videos/${selectedVideo.id}/stream`);
-                    
-                    // The backend returns a redirect, but fetchWithAuth follows it automatically
-                    // So we should get the final secure URL in the response
-                    if (response.url) {
-                        videoRef.current.src = response.url;
-                    } else {
-                        // Fallback: use the original cloudinary_url
-                        videoRef.current.src = selectedVideo.cloudinary_url;
-                    }
-                    
-                    // Try to play the video
-                    videoRef.current.play().catch(error => {
-                        console.log("Autoplay was prevented by the browser.", error);
+                    // Get secure video URL from backend with proper handling
+                    const response = await fetchWithAuth(`/api/videos/${selectedVideo.id}/stream`, {
+                        method: 'GET',
                     });
                     
-                } catch (error) {
-                    console.error('Failed to load secure video URL:', error);
-                    // Fallback: use the original cloudinary_url
-                    if (videoRef.current) {
+                    // Check if we got a successful response
+                    if (response.ok) {
+                        // Backend returns JSON with video_url field
+                        const data = await response.json();
+                        if (data.video_url) {
+                            videoRef.current.src = data.video_url;
+                            console.log('Using secure video URL from backend:', data.video_url);
+                            
+                            // Load the video and play it
+                            videoRef.current.load();
+                            
+                            // Wait for the video to be ready and then play
+                            videoRef.current.onloadeddata = () => {
+                                console.log('Video loaded successfully, attempting to play...');
+                                videoRef.current?.play().catch(error => {
+                                    console.log("Autoplay was prevented by the browser:", error);
+                                });
+                            };
+                            
+                            // Handle any loading errors
+                            videoRef.current.onerror = (error) => {
+                                console.error('Video loading error:', error);
+                                // Fallback to cloudinary_url on error
+                                if (videoRef.current) {
+                                    console.log('Falling back to cloudinary_url due to loading error');
+                                    videoRef.current.src = selectedVideo.cloudinary_url;
+                                    videoRef.current.load();
+                                }
+                            };
+                            
+                        } else {
+                            // Fallback: use the original cloudinary_url
+                            console.log('No video_url in response, using fallback cloudinary_url');
+                            videoRef.current.src = selectedVideo.cloudinary_url;
+                            videoRef.current.load();
+                            videoRef.current.play().catch(error => {
+                                console.log("Autoplay was prevented by the browser:", error);
+                            });
+                        }
+                    } else {
+                        // Fallback: use the original cloudinary_url
+                        console.log('Response not ok, using fallback cloudinary_url');
                         videoRef.current.src = selectedVideo.cloudinary_url;
+                        videoRef.current.load();
+                        videoRef.current.play().catch(error => {
+                            console.log("Autoplay was prevented by the browser:", error);
+                        });
                     }
-                    toast.error('Failed to load secure video. Using fallback URL.');
+                    
+                } catch (error: any) {
+                    console.error('Failed to load secure video URL:', error);
+                    
+                    // Check if it's a redirect response (302)
+                    if (error.response && error.response.status === 302) {
+                        const redirectUrl = error.response.headers.location || error.response.headers.Location;
+                        if (redirectUrl && videoRef.current) {
+                            console.log('Using redirect URL:', redirectUrl);
+                            videoRef.current.src = redirectUrl;
+                            videoRef.current.load();
+                            videoRef.current.play().catch(playError => {
+                                console.log("Autoplay was prevented by the browser.", playError);
+                            });
+                            return;
+                        }
+                    }
+                    
+                    // Final fallback: use the original cloudinary_url
+                    if (videoRef.current) {
+                        console.log('Using final fallback cloudinary_url');
+                        videoRef.current.src = selectedVideo.cloudinary_url;
+                        videoRef.current.load();
+                    }
+                    toast.error('Using fallback video URL due to streaming error.');
                 }
             }
         };
