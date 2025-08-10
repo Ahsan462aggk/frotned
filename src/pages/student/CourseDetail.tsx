@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
+import Hls from 'hls.js';
 import { Loader2, AlertCircle, Upload, Play, CheckCircle, Circle } from 'lucide-react';
 import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
 import DashboardLayout from '@/components/DashboardLayout';
@@ -30,7 +31,7 @@ interface CourseInfo {
 
 interface Video {
     id: string;
-    cloudinary_url: string;
+    streaming_url: string;
     title: string;
     description: string;
     watched: boolean;
@@ -290,10 +291,10 @@ const PaymentStatusCard: FC<{
                                                         controlsList="nodownload noremoteplayback noplaybackrate"
                                                         disablePictureInPicture
                                                         disableRemotePlayback
-                                                        onContextMenu={(e) => e.preventDefault()}
-                                                        onSelectStart={(e) => e.preventDefault()}
-                                                        onDragStart={(e) => e.preventDefault()}
-                                                        src={selectedVideo.cloudinary_url}
+                                                        onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
+                                                        onSelectStart={(e: React.SyntheticEvent) => e.preventDefault()}
+                                                        onDragStart={(e: React.DragEvent) => e.preventDefault()}
+                                                        
                                                         poster="https://placehold.co/800x450/000000/FFFFFF?text=Video+Player"
                                                         onPlay={(e) => {
                                                             handleVideoPlay(selectedVideo);
@@ -642,7 +643,7 @@ const PaymentStatusCard: FC<{
                                                             MozUserSelect: 'none',
                                                             msUserSelect: 'none'
                                                         }}
-                                                        onContextMenu={(e) => e.preventDefault()}
+                                                        onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
                                                         onSelectStart={(e) => e.preventDefault()}
                                                         onDragStart={(e) => e.preventDefault()}
                                                     />
@@ -917,9 +918,28 @@ const CourseDetail: FC = () => {
 
     useEffect(() => {
         if (selectedVideo && videoRef.current) {
-            videoRef.current.play().catch(error => {
-                console.log("Autoplay was prevented by the browser.", error);
-            });
+            const video = videoRef.current;
+            let hls: Hls | null = null;
+
+            if (Hls.isSupported()) {
+                hls = new Hls();
+                hls.loadSource(selectedVideo.streaming_url);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    video.play().catch((e: any) => console.error('Autoplay was prevented.', e));
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = selectedVideo.streaming_url;
+                video.addEventListener('loadedmetadata', () => {
+                    video.play().catch((e: any) => console.error('Autoplay was prevented.', e));
+                });
+            }
+
+            return () => {
+                if (hls) {
+                    hls.destroy();
+                }
+            };
         }
     }, [selectedVideo]);
 
