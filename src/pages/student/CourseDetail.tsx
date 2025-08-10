@@ -11,7 +11,7 @@ import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Badge } from '@/components/ui/badge';
 import '@/styles/video-protection.css';
-import ReactPlayer from 'react-player'; 
+
 // --- INTERFACES ---
 interface CourseInfo {
     id: string;
@@ -249,13 +249,30 @@ const PaymentStatusCard: FC<{
                                                         className="w-full h-full rounded-t-lg video-protected"
                                                         controls
                                                         autoPlay
+                                                        muted
+                                                        playsInline
+                                                        preload="metadata"
+                                                        crossOrigin="anonymous"
+                                                        onLoadStart={() => {
+                                                            // Preload next video in background for instant switching
+                                                            const currentIndex = videos.findIndex(v => v.id === selectedVideo.id);
+                                                            const nextVideo = videos[currentIndex + 1];
+                                                            if (nextVideo && nextVideo.cloudinary_url) {
+                                                                const prefetchVideo = document.createElement('link');
+                                                                prefetchVideo.rel = 'prefetch';
+                                                                prefetchVideo.href = nextVideo.cloudinary_url;
+                                                                prefetchVideo.as = 'video';
+                                                                document.head.appendChild(prefetchVideo);
+                                                                console.log('Prefetching next video for instant switching');
+                                                            }
+                                                        }}
                                                         controlsList="nodownload noremoteplayback noplaybackrate"
                                                         disablePictureInPicture
                                                         disableRemotePlayback
                                                         onContextMenu={(e) => e.preventDefault()}
                                                         onSelectStart={(e) => e.preventDefault()}
                                                         onDragStart={(e) => e.preventDefault()}
-                                                        ref={videoRef}
+                                                        src={selectedVideo.cloudinary_url}
                                                         poster="https://placehold.co/800x450/000000/FFFFFF?text=Video+Player"
                                                         onPlay={(e) => {
                                                             handleVideoPlay(selectedVideo);
@@ -1276,38 +1293,6 @@ const CourseDetail: FC = () => {
     const handleVideoSelect = (video: Video) => {
         setSelectedVideo(video);
     };
-
-    // Load video when selected - use direct streaming endpoint
-    useEffect(() => {
-        if (selectedVideo && videoRef.current) {
-            console.log('Loading video:', selectedVideo.title);
-            
-            // Use the secure streaming endpoint directly - no need for JSON parsing
-            // The backend now streams the video content directly
-            videoRef.current.src = `/api/videos/${selectedVideo.id}/stream`;
-            
-            // Wait for the video to be ready and then play
-            videoRef.current.onloadeddata = () => {
-                console.log('Video loaded successfully from secure stream, attempting to play...');
-                videoRef.current?.play().catch(error => {
-                    console.log("Autoplay was prevented by the browser:", error);
-                });
-            };
-            
-            // Handle any loading errors - fallback to cloudinary_url
-            videoRef.current.onerror = (error) => {
-                console.error('Secure streaming failed, falling back to cloudinary_url:', error);
-                if (videoRef.current && selectedVideo.cloudinary_url) {
-                    videoRef.current.src = selectedVideo.cloudinary_url;
-                    videoRef.current.load();
-                    toast.error('Using fallback video URL due to streaming error.');
-                }
-            };
-            
-            // Load the video
-            videoRef.current.load();
-        }
-    }, [selectedVideo]);
 
     const handleVideoToggleWatched = async (video: Video) => {
         setCompletingVideoId(video.id);
