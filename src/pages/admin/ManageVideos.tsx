@@ -1,5 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import Hls from 'hls.js';
+import { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -45,7 +44,6 @@ interface Video {
 
 
 const ManageVideos: React.FC = () => {
-  const videoRef = useRef<HTMLVideoElement>(null);
   const [videos, setVideos] = useState<Video[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
@@ -97,30 +95,6 @@ const ManageVideos: React.FC = () => {
       fetchVideosByCourse(selectedCourseId);
     }
   }, [selectedCourseId, fetchVideosByCourse]);
-
-  useEffect(() => {
-    let hls: Hls | null = null;
-    if (previewVideoUrl && videoRef.current) {
-      const videoElement = videoRef.current;
-      if (previewVideoUrl.endsWith('.m3u8')) {
-        if (Hls.isSupported()) {
-          hls = new Hls();
-          hls.loadSource(previewVideoUrl);
-          hls.attachMedia(videoElement);
-        } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
-          videoElement.src = previewVideoUrl;
-        }
-      } else {
-        videoElement.src = previewVideoUrl;
-      }
-    }
-
-    return () => {
-      if (hls) {
-        hls.destroy();
-      }
-    };
-  }, [previewVideoUrl]);
 
   const handleOpenModal = (video: Partial<Video> | null = null) => {
     if (video) {
@@ -378,7 +352,7 @@ const ManageVideos: React.FC = () => {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="video-file" className="text-right">Video File</Label>
-              <Input id="video-file" type="file" accept="video/*,.m3u8,application/vnd.apple.mpegurl" onChange={handleFileChange} className="col-span-3" />
+              <Input id="video-file" type="file" accept="video/*" onChange={handleFileChange} className="col-span-3" />
             </div>
             {selectedFile && <p className='text-sm text-center'>New file selected: {selectedFile.name}</p>}
             {isUploading && (
@@ -403,7 +377,7 @@ const ManageVideos: React.FC = () => {
             <DialogTitle>Video Preview</DialogTitle>
           </DialogHeader>
           {previewVideoUrl && (
-            <video ref={videoRef} controls autoPlay className="w-full rounded-lg mt-4 max-h-[70vh]">
+            <video controls autoPlay src={previewVideoUrl} className="w-full rounded-lg mt-4 max-h-[70vh]">
               Your browser does not support the video tag.
             </video>
           )}
