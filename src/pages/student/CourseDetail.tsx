@@ -769,10 +769,7 @@ const PaymentStatusCard: FC<{
                                 disabled={isLoadingPurchaseInfo}
                             >
                                 {isLoadingPurchaseInfo ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Loading Payment Info...
-                                    </>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 ) : (
                                     'Submit Payment Proof'
                                 )}
@@ -797,6 +794,7 @@ const CourseDetail: FC = () => {
     const [course, setCourse] = useState<CourseInfo | null>(null);
     const [applicationStatus, setApplicationStatus] = useState<ApplicationStatusResponse['status'] | null>(null);
     const [paymentStatus, setPaymentStatus] = useState<PaymentStatusResponse['status'] | null>(null);
+    const paymentFormRef = useRef<HTMLDivElement>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [showEnrollmentForm, setShowEnrollmentForm] = useState(false);
@@ -1233,6 +1231,9 @@ const CourseDetail: FC = () => {
             await fetchPurchaseInfo();
         }
         setShowPaymentForm(true);
+        setTimeout(() => {
+            paymentFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100); // A small delay to ensure the element is rendered
     };
 
     const handleVideoPlay = async (video: Video) => {
@@ -1666,7 +1667,7 @@ const CourseDetail: FC = () => {
                         )}
                         
                         {applicationStatus === 'APPROVED' && showPaymentForm && (
-                            <Card className="mt-6 border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg">
+                            <Card ref={paymentFormRef} className="mt-6 border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg scroll-mt-24">
                                 <CardHeader className="bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-t-lg">
                                     <CardTitle className="flex items-center gap-2">
                                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
