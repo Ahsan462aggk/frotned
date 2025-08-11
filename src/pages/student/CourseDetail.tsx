@@ -850,8 +850,9 @@ const CourseDetail: FC = () => {
                         setPaymentStatus(paymentStatusData.status);
                     } catch (paymentError) {
                         console.log('No payment proof submitted yet or error fetching status.');
-                        setApplicationStatus('PENDING'); // Default to PENDING if no status is returned
+                        setPaymentStatus('PENDING');
                     }
+
                 } else {
                     setPaymentStatus(null); // Reset payment status if application is not approved
                 }
@@ -1643,7 +1644,7 @@ const CourseDetail: FC = () => {
                             </Card>
                         )}
                         
-                        {applicationStatus === 'APPROVED' && !showPaymentForm && paymentStatus !== null && (
+                        {applicationStatus === 'APPROVED' && paymentStatus !== null && (
                             <PaymentStatusCard
                                 paymentStatus={paymentStatus}
                                 onShowPaymentForm={handleShowPaymentForm}
