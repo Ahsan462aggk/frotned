@@ -352,7 +352,7 @@ const ManageVideos: React.FC = () => {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="video-file" className="text-right">Video File</Label>
-              <Input id="video-file" type="file" accept="video/*" onChange={handleFileChange} className="col-span-3" />
+              <Input id="video-file" type="file" accept="video/*,.m3u8,application/vnd.apple.mpegurl" onChange={handleFileChange} className="col-span-3" />
             </div>
             {selectedFile && <p className='text-sm text-center'>New file selected: {selectedFile.name}</p>}
             {isUploading && (
