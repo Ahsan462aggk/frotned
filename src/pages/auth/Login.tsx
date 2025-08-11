@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card } from "@/components/ui/card";
+
 import { GraduationCap, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -89,16 +89,22 @@ const Login = () => {
         description: data.message || `Welcome back to SUTI!`,
       });
       
-      const enrollCourseId = localStorage.getItem('enrollCourseId');
-      if (enrollCourseId) {
-        localStorage.removeItem('enrollCourseId');
-        navigate(`/student/payment?course_id=${enrollCourseId}`);
+      const redirectUrl = localStorage.getItem('redirectUrl');
+      if (redirectUrl) {
+        localStorage.removeItem('redirectUrl');
+        navigate(redirectUrl);
       } else {
-        // Role-based redirection
-        if (data.role === 'admin') {
-          navigate("/admin/dashboard");
+        const enrollCourseId = localStorage.getItem('enrollCourseId');
+        if (enrollCourseId) {
+          localStorage.removeItem('enrollCourseId');
+          navigate(`/student/payment?course_id=${enrollCourseId}`);
         } else {
-          navigate("/student/dashboard");
+          // Role-based redirection
+          if (data.role === 'admin') {
+            navigate("/admin/dashboard");
+          } else {
+            navigate("/student/dashboard");
+          }
         }
       }
     } catch (error) {
@@ -106,11 +112,19 @@ const Login = () => {
       
       // Handle specific error cases
       if (error instanceof Error) {
-        toast({
-          title: "Login Failed",
-          description: error.message,
-          variant: "destructive",
-        });
+        if (error.message.toLowerCase().includes('invalid credentials') || error.message.toLowerCase().includes('not found')) {
+          toast({
+            title: "User Not Found",
+            description: "No account found with that email. Please sign up.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Login Failed",
+            description: error.message,
+            variant: "destructive",
+          });
+        }
       } else {
         toast({
           title: "Error",
@@ -123,86 +137,84 @@ const Login = () => {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-6">
-      <div className="w-full max-w-md">
+    return (
+    <div className="relative min-h-screen w-full bg-gray-900 flex items-center justify-center overflow-hidden p-4">
+      {/* Animated Gradient Orbs */}
+      <div className="absolute inset-0 z-0">
+        <div className="absolute top-1/4 left-1/4 w-72 h-72 md:w-96 md:h-96 bg-gradient-to-br from-purple-600 to-pink-500 rounded-full filter blur-3xl opacity-30 animate-blob"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-72 h-72 md:w-96 md:h-96 bg-gradient-to-br from-blue-500 to-teal-400 rounded-full filter blur-3xl opacity-30 animate-blob animation-delay-4000"></div>
+      </div>
+
+      <div className="relative z-10 w-full max-w-md mx-auto">
         <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center space-x-2 mb-6">
-            <GraduationCap className="h-10 w-10 text-primary" />
-            <div className="flex flex-col items-center">
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-blue-400 bg-clip-text text-transparent">
-                SUTI
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Sabriy Ultrasound Training Institute
-              </p>
-            </div>
+          <Link to="/" className="inline-flex items-center justify-center gap-3 mb-4">
+            <GraduationCap className="h-10 w-10 md:h-12 md:w-12 text-purple-400" />
+            <h1 className="text-3xl md:text-4xl font-bold text-white">SUTI</h1>
           </Link>
-          <h1 className="text-3xl font-bold mb-2">Welcome Back</h1>
-          <p className="text-muted-foreground">Sign in to continue your learning journey</p>
+          <h2 className="text-2xl md:text-3xl font-bold text-white">Welcome Back</h2>
+          <p className="text-gray-400 mt-1">Sign in to continue your learning journey</p>
         </div>
 
-        <Card className="glass-card p-8">
+        <div className="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-8 border border-white/20">
           <form onSubmit={handleSubmit} className="space-y-6">
-
-
             <div className="space-y-4">
               <div>
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="text-gray-300 font-medium">Email</Label>
                 <Input
                   id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your@email.com"
-                  className="mt-1"
+                  className="mt-2 bg-gray-800/50 border-gray-700 text-white placeholder:text-gray-500 rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-all duration-300"
                   autoComplete="email"
                 />
               </div>
 
               <div>
-                <Label htmlFor="password">Password</Label>
-                <div className="relative mt-1">
+                <Label htmlFor="password" className="text-gray-300 font-medium">Password</Label>
+                <div className="relative mt-2">
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
+                    className="bg-gray-800/50 border-gray-700 text-white placeholder:text-gray-500 rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-all duration-300"
                     autoComplete="current-password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
               </div>
             </div>
 
-            <Button type="submit" className="w-full btn-neon" disabled={isLoading}>
-              {isLoading ? 'Signing In...' : 'Sign In'}
-            </Button>
-
-            <div className="text-center">
+            <div className="text-right">
               <Link 
                 to="/forgot-password" 
-                className="text-primary hover:text-primary/80 transition-colors"
+                className="text-sm font-medium text-purple-400 hover:text-purple-300 transition-colors"
               >
                 Forgot your password?
               </Link>
             </div>
 
-            <div className="text-center text-muted-foreground">
+            <Button type="submit" className="w-full text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transform hover:scale-105 transition-transform duration-300 shadow-lg shadow-purple-500/30 rounded-full py-3 text-base font-semibold" disabled={isLoading}>
+              {isLoading ? 'Signing In...' : 'Sign In'}
+            </Button>
+
+            <div className="text-center text-gray-400">
               Don't have an account?{" "}
-              <Link to="/signup" className="text-primary hover:text-primary/80 transition-colors">
+              <Link to="/signup" className="font-semibold text-purple-400 hover:text-purple-300 transition-colors">
                 Sign up
               </Link>
             </div>
           </form>
-        </Card>
+        </div>
       </div>
     </div>
   );

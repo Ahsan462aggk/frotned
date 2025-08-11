@@ -6,7 +6,6 @@ import {
   BookOpen, 
   FileText, 
   HelpCircle, 
-  CreditCard, 
   User, 
   LogOut,
   Users,
@@ -50,6 +49,7 @@ const DashboardLayout = ({ children, userType }: DashboardLayoutProps) => {
     { icon: Bell, label: "Notifications", path: "/admin/notifications" },
     { icon: Clock, label: "Manage Assignments", path: "/admin/manage-assignments" },
     { icon: CheckCircle, label: "Manage Quizzes", path: "/admin/manage-quizzes" },
+    { icon: HelpCircle, label: "Manage Questions", path: "/admin/manage-questions" },
     { icon: FileText, label: "Manage Videos", path: "/admin/manage-videos" },
   ];
 
@@ -58,74 +58,60 @@ const DashboardLayout = ({ children, userType }: DashboardLayoutProps) => {
   return (
     <div className="min-h-screen bg-background flex">
       {/* Sidebar */}
-      <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed inset-y-0 left-0 z-50 w-64 bg-card/50 backdrop-blur-sm border-r border-border/50 transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}>
-        <div className="flex items-center justify-between p-6 border-b border-border/50">
-          <Link to="/" className="flex items-center space-x-2">
-            <GraduationCap className="h-8 w-8 text-primary" />
-            <div className="flex flex-col">
-              <span className="text-xl font-bold bg-gradient-to-r from-primary to-blue-400 bg-clip-text text-transparent">
+      <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed inset-y-0 left-0 z-50 w-64 bg-gray-900/50 backdrop-blur-xl border-r border-purple-500/20 transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex flex-col`}>
+        <div className="flex items-center justify-between p-5 border-b border-purple-500/20">
+          <Link to="/" className="flex items-center space-x-3">
+            <GraduationCap className="h-10 w-10 text-purple-400" />
+            <div>
+              <span className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 text-transparent bg-clip-text">
                 SUTI
               </span>
-              <span className="text-xs text-muted-foreground">
-                Sabriy Ultrasound Training Institute
-              </span>
+              <p className="text-xs text-gray-500 leading-tight">LMS Platform</p>
             </div>
           </Link>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setSidebarOpen(false)}
-            className="lg:hidden"
-          >
-            <X className="h-5 w-5" />
+          <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)} className="lg:hidden text-gray-400 hover:text-white">
+            <X className="h-6 w-6" />
           </Button>
         </div>
 
-        <nav className="p-0 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted/30 scrollbar-track-transparent">
-  <div className="flex flex-col gap-1 p-4">
-    {menuItems.map((item, idx) => {
-      const isActive = location.pathname === item.path;
-      // Add extra margin below 'Manage Videos' if admin
-      const isManageVideos = item.label === "Manage Videos";
-      return (
-        <Link
-          key={item.path}
-          to={item.path}
-          className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-            isActive 
-              ? 'bg-primary/20 text-primary border border-primary/30' 
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-          } ${isManageVideos ? 'mb-3 md:mb-4' : ''}`}
-          onClick={() => setSidebarOpen(false)}
-        >
-          <item.icon className="h-5 w-5" />
-          <span className="text-base md:text-sm">{item.label}</span>
-        </Link>
-      );
-    })}
-  </div>
-</nav>
+        <nav className="flex-1 overflow-y-auto p-4 space-y-2 styled-scrollbar">
+          {menuItems.map((item) => {
+            const isActive = location.pathname.startsWith(item.path);
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`relative flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-300 ease-in-out group overflow-hidden ${ 
+                  isActive 
+                    ? 'text-white shadow-lg shadow-purple-500/20'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
+                onClick={() => setSidebarOpen(false)}
+              >
+                <div className={`absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 transition-all duration-500 ease-in-out ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-20'}`} />
+                <div className={`absolute left-0 top-0 h-full w-1 bg-pink-400 transition-all duration-300 ${isActive ? 'scale-y-100' : 'scale-y-0'}`} />
+                <item.icon className={`relative z-10 h-5 w-5 transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
+                <span className="relative z-10 font-medium">{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
 
-{/* Divider and Logout always at bottom, clearly separated */}
-<div className="px-6 pb-6 pt-2">
-  <div className="border-t border-border/30 mb-2" />
-  <Button 
-    variant="ghost" 
-    onClick={() => {
-      localStorage.clear(); // Clear user session
-      toast({
-        title: "Logged Out",
-        description: "You have been successfully logged out.",
-      });
-      navigate("/");
-    }}
-    className="w-full justify-start text-muted-foreground hover:text-destructive text-base md:text-sm"
-    style={{ minHeight: 48 }}
-  >
-    <LogOut className="mr-3 h-5 w-5" />
-    Logout
-  </Button>
-</div>
+        <div className="px-4 pb-4 pt-2">
+          <div className="border-t border-purple-500/20 mb-4" />
+          <Button 
+            variant="ghost" 
+            onClick={() => {
+              localStorage.clear();
+              toast({ title: "Logged Out", description: "You have been successfully logged out." });
+              navigate("/");
+            }}
+            className="w-full justify-start text-gray-400 hover:text-red-500 hover:bg-red-500/10 transition-colors duration-200 group"
+          >
+            <LogOut className="mr-3 h-5 w-5 text-gray-500 group-hover:text-red-500 transition-colors duration-200" />
+            <span className="font-medium">Logout</span>
+          </Button>
+        </div>
       </div>
 
       {/* Main Content */}

@@ -1,6 +1,6 @@
 
 import DashboardLayout from "@/components/DashboardLayout";
-import { Card } from "@/components/ui/card";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -179,102 +179,70 @@ const Profile = () => {
 
   return (
     <DashboardLayout userType="student">
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        className="hidden"
-        accept="image/*"
-      />
-      <div className="space-y-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">My Profile</h1>
-            <p className="text-muted-foreground">Manage your account settings and track your progress</p>
-          </div>
-          {isEditing ? (
-            <div className="flex gap-2">
-              <Button onClick={handleSave}>
-                <Save className="mr-2 h-4 w-4" />
-                Save Changes
-              </Button>
-              <Button variant="outline" onClick={handleCancel}>
-                Cancel
-              </Button>
-            </div>
-          ) : (
-            <Button onClick={() => setIsEditing(true)} variant="outline">
-              <Edit className="mr-2 h-4 w-4" />
-              Edit Profile
-            </Button>
-          )}
+      <div className="relative min-h-screen w-full bg-gray-900 text-white overflow-hidden">
+        <div className="absolute inset-0 z-0">
+          <div className="absolute -top-20 -left-20 w-72 h-72 bg-purple-600 rounded-full filter blur-3xl opacity-20 animate-blob"></div>
+          <div className="absolute -bottom-20 -right-20 w-72 h-72 bg-pink-600 rounded-full filter blur-3xl opacity-20 animate-blob animation-delay-3000"></div>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          <Card className="glass-card p-8 lg:col-span-1">
-            <div className="text-center space-y-6">
-              <div className="relative inline-block">
-                <img 
-                  src={profileData.avatarUrl}
-                  alt="Profile"
-                  className="w-32 h-32 rounded-full object-cover mx-auto"
-                />
-                <button 
-                  onClick={handleImageUploadClick}
-                  className="absolute bottom-0 right-0 w-10 h-10 bg-primary rounded-full flex items-center justify-center hover:bg-primary/80 transition-colors"
-                >
-                  <Camera className="h-5 w-5 text-primary-foreground" />
-                </button>
+        <div className="relative z-10 p-4 sm:p-6 lg:p-8">
+          <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+          
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 text-transparent bg-clip-text">My Profile</h1>
+              <p className="text-gray-400 mt-1">Manage your account settings and track your progress.</p>
+            </div>
+            {isEditing ? (
+              <div className="flex gap-3">
+                <Button onClick={handleSave} className="bg-gradient-to-r from-green-500 to-teal-500 text-white font-bold hover:scale-105 transition-transform"><Save className="mr-2 h-4 w-4" />Save</Button>
+                <Button variant="outline" onClick={handleCancel} className="border-gray-600 hover:bg-gray-800 hover:text-white">Cancel</Button>
               </div>
-              
-              <div>
-                <h2 className="text-2xl font-bold">{profileData.fullName}</h2>
-                <p className="text-muted-foreground">Student</p>
-              </div>
+            ) : (
+              <Button onClick={() => setIsEditing(true)} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold hover:scale-105 transition-transform shadow-lg hover:shadow-pink-500/40"><Edit className="mr-2 h-4 w-4" />Edit Profile</Button>
+            )}
+          </div>
 
-              <div className="space-y-3 text-left">
-                <div className="flex items-center space-x-3 text-muted-foreground">
+          <div className="grid lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-1">
+              <div className="bg-gray-900/50 backdrop-blur-lg border border-purple-500/20 shadow-2xl rounded-2xl p-8 text-center">
+                <div className="relative inline-block group mb-6">
+                  <div className="absolute -inset-1.5 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full blur-md group-hover:blur-lg transition-all duration-300"></div>
+                  <img src={profileData.avatarUrl} alt="Profile" className="relative w-36 h-36 rounded-full object-cover mx-auto border-4 border-gray-800" />
+                  <button onClick={handleImageUploadClick} className="absolute bottom-1 right-1 w-10 h-10 bg-gray-900 rounded-full flex items-center justify-center hover:bg-purple-600 transition-colors border-2 border-purple-500/50">
+                    <Camera className="h-5 w-5 text-purple-400 group-hover:text-white" />
+                  </button>
+                </div>
+                <h2 className="text-3xl font-bold text-white">{profileData.fullName}</h2>
+                <p className="text-purple-400 font-medium">Student</p>
+                <div className="flex items-center justify-center gap-2 mt-4 text-gray-400">
                   <Mail className="h-5 w-5" />
                   <span>{profileData.email}</span>
                 </div>
               </div>
             </div>
-          </Card>
 
-          <div className="lg:col-span-2">
-            <Card className="glass-card p-8">
-              {isEditing ? (
-                <>
-                  <h3 className="text-xl font-bold mb-6">Edit Information</h3>
+            <div className="lg:col-span-2">
+              <div className="bg-gray-900/50 backdrop-blur-lg border border-purple-500/20 shadow-2xl rounded-2xl p-8 h-full">
+                {isEditing ? (
                   <div className="space-y-6">
                     <div>
-                      <Label htmlFor="fullName">Full Name</Label>
-                      <Input
-                        id="fullName"
-                        value={profileData.fullName}
-                        onChange={(e) => setProfileData({ ...profileData, fullName: e.target.value })}
-                      />
+                      <Label htmlFor="fullName" className="font-semibold text-pink-400">Full Name</Label>
+                      <Input id="fullName" value={profileData.fullName} onChange={(e) => setProfileData({ ...profileData, fullName: e.target.value })} className="mt-2 bg-white/5 border-white/10 focus:border-pink-500 rounded-lg" />
                     </div>
                     <div>
-                      <Label htmlFor="bio">Bio</Label>
-                      <Textarea
-                        id="bio"
-                        value={profileData.bio}
-                        onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
-                        rows={5}
-                      />
+                      <Label htmlFor="bio" className="font-semibold text-pink-400">About Me</Label>
+                      <Textarea id="bio" value={profileData.bio} onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })} rows={6} className="mt-2 bg-white/5 border-white/10 focus:border-pink-500 rounded-lg styled-scrollbar" />
                     </div>
                   </div>
-                </>
-              ) : (
-                <>
-                  <h3 className="text-xl font-bold mb-6">About Me</h3>
-                  <p className="text-muted-foreground leading-relaxed">
-                    {profileData.bio}
-                  </p>
-                </>
-              )}
-            </Card>
+                ) : (
+                  <div>
+                    <h3 className="text-2xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-pink-500 text-transparent bg-clip-text">About Me</h3>
+                    <p className="text-gray-300 leading-relaxed whitespace-pre-wrap">{profileData.bio}</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>

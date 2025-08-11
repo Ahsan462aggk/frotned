@@ -104,28 +104,27 @@ const Quizzes = () => {
     const isCompleted = quiz.is_submitted;
 
     return (
-      <Card key={quiz.id} className="glass-card p-6 hover:neon-glow transition-all duration-300">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex-1 space-y-4">
-            <div className="flex items-center space-x-3">
-              <h3 className="text-xl font-semibold">{quiz.title}</h3>
-            </div>
-            <p className="text-muted-foreground">{quiz.course_title}</p>
-            <p className="text-foreground">{quiz.description}</p>
+      <div key={quiz.id} className="bg-gray-900/50 backdrop-blur-lg border border-white/10 shadow-lg rounded-2xl p-6 transition-all duration-300 hover:border-purple-500/50 hover:shadow-purple-500/10">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+          <div className="flex-1">
+            <p className="text-sm text-purple-400 mb-1">{quiz.course_title}</p>
+            <h3 className="text-2xl font-bold text-white">{quiz.title}</h3>
+            <p className="text-gray-400 mt-2">{quiz.description}</p>
           </div>
-          <div>
+          <div className="flex-shrink-0 text-right">
             {isCompleted ? (
-              <p className="text-lg font-bold text-right">
-                Score: {quiz.score}/{quiz.total_questions}
-              </p>
+              <div className="space-y-2">
+                <p className="text-lg font-bold text-green-400">Score: {quiz.score}/{quiz.total_questions}</p>
+                
+              </div>
             ) : (
-              <Link to={`/student/quizzes/${quiz.course_id}/${quiz.id}/attempt`} className="w-full">
-                <Button><Play className="mr-2 h-4 w-4"/>Start Quiz</Button>
-              </Link>
+              <Button asChild className="bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold shadow-lg hover:scale-105 transform transition-transform duration-300">
+                <Link to={`/student/quizzes/${quiz.course_id}/${quiz.id}/attempt`}>Start Quiz</Link>
+              </Button>
             )}
           </div>
         </div>
-      </Card>
+      </div>
     );
   };
 
@@ -156,85 +155,65 @@ const Quizzes = () => {
 
   return (
     <DashboardLayout userType="student">
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2">Quizzes</h1>
-          <p className="text-muted-foreground">Test your knowledge and track your progress</p>
+      <div className="relative min-h-screen w-full bg-gray-900 text-white overflow-hidden">
+        <div className="absolute inset-0 z-0">
+          <div className="absolute -top-20 -left-20 w-72 h-72 bg-purple-600 rounded-full filter blur-3xl opacity-20 animate-blob"></div>
+          <div className="absolute -bottom-20 -right-20 w-72 h-72 bg-pink-600 rounded-full filter blur-3xl opacity-20 animate-blob animation-delay-3000"></div>
         </div>
 
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-          <Card className="glass-card p-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                <Target className="h-6 w-6 text-blue-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{availableQuizzes.length}</p>
-                <p className="text-sm text-muted-foreground">Available</p>
-              </div>
-            </div>
-          </Card>
+        <div className="relative z-10 p-4 sm:p-6 lg:p-8">
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 text-transparent bg-clip-text">Quizzes</h1>
+            <p className="text-gray-400 mt-1">Test your knowledge and track your progress.</p>
+          </div>
 
-          <Card className="glass-card p-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
-                <CheckCircle className="h-6 w-6 text-green-500" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {[{
+              icon: Target,
+              label: 'Available',
+              value: availableQuizzes.length,
+              color: 'blue'
+            }, {
+              icon: CheckCircle,
+              label: 'Completed',
+              value: completedQuizzes.length,
+              color: 'green'
+            }, {
+              icon: Trophy,
+              label: 'Avg Score',
+              value: 'N/A',
+              color: 'yellow'
+            }, {
+              icon: Clock,
+              label: 'Avg Time',
+              value: 'N/A',
+              color: 'purple'
+            }].map(stat => (
+              <div key={stat.label} className="bg-gray-900/50 backdrop-blur-lg border border-white/10 shadow-2xl rounded-2xl p-6 flex items-center gap-4">
+                <div className={`w-12 h-12 bg-${stat.color}-500/10 rounded-lg flex items-center justify-center border border-${stat.color}-500/20`}>
+                  <stat.icon className={`h-6 w-6 text-${stat.color}-400`} />
+                </div>
+                <div>
+                  <p className="text-3xl font-bold text-white">{stat.value}</p>
+                  <p className="text-sm text-gray-400">{stat.label}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-2xl font-bold">{completedQuizzes.length}</p>
-                <p className="text-sm text-muted-foreground">Completed</p>
-              </div>
-            </div>
-          </Card>
+            ))}
+          </div>
 
-          <Card className="glass-card p-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-yellow-500/20 rounded-lg flex items-center justify-center">
-                <Trophy className="h-6 w-6 text-yellow-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">N/A</p>
-                <p className="text-sm text-muted-foreground">Avg Score</p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="glass-card p-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center">
-                <Clock className="h-6 w-6 text-purple-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">N/A</p>
-                <p className="text-sm text-muted-foreground">Avg Time</p>
-              </div>
-            </div>
-          </Card>
+          <Tabs defaultValue="available" className="w-full">
+            <TabsList className="bg-gray-900/50 backdrop-blur-lg border border-white/10 p-1 rounded-xl w-full sm:w-auto">
+              <TabsTrigger value="available" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">Available Quizzes</TabsTrigger>
+              <TabsTrigger value="completed" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">Completed Quizzes</TabsTrigger>
+            </TabsList>
+            <TabsContent value="available" className="mt-6 space-y-4">
+              {availableQuizzes.length > 0 ? availableQuizzes.map(renderQuizCard) : <p className="text-center text-gray-500 py-12">No available quizzes at the moment.</p>}
+            </TabsContent>
+            <TabsContent value="completed" className="mt-6 space-y-4">
+              {completedQuizzes.length > 0 ? completedQuizzes.map(renderQuizCard) : <p className="text-center text-gray-500 py-12">You have not completed any quizzes yet.</p>}
+            </TabsContent>
+          </Tabs>
         </div>
-
-        <Tabs defaultValue="available" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="available">Available Quizzes</TabsTrigger>
-            <TabsTrigger value="completed">Completed Quizzes</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="available" className="space-y-4">
-            {availableQuizzes.length > 0 ? (
-              availableQuizzes.map(renderQuizCard)
-            ) : (
-              <p className="text-center text-muted-foreground py-8">No available quizzes at the moment.</p>
-            )}
-          </TabsContent>
-
-          <TabsContent value="completed" className="space-y-4">
-            {completedQuizzes.length > 0 ? (
-              completedQuizzes.map(renderQuizCard)
-            ) : (
-              <p className="text-center text-muted-foreground py-8">You have not completed any quizzes yet.</p>
-            )}
-          </TabsContent>
-        </Tabs>
       </div>
     </DashboardLayout>
   );

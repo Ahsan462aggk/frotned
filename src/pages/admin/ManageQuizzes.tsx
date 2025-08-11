@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, FC } from 'react';
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { MoreHorizontal, PlusCircle, Loader2, Trash2 } from 'lucide-react';
+import { MoreVertical, Plus, Loader2, Trash2, Edit, ClipboardEdit, ListChecks, X, Calendar as CalendarIcon, BookOpenCheck } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,6 +14,9 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 
 // --- Type Definitions ---
 interface Option {
@@ -40,7 +43,7 @@ interface Quiz {
   questions?: Question[];
 }
 
-const ManageQuizzes: React.FC = () => {
+const ManageQuizzes: FC = () => {
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
@@ -97,8 +100,8 @@ const ManageQuizzes: React.FC = () => {
       title: '',
       description: '',
       course_id: selectedCourseId,
-      due_date: null,
-      questions: [], // Initialize with an empty question
+      due_date: new Date().toISOString(),
+      questions: [{ text: 'New Question', options: [{ text: 'Option 1', is_correct: true }] }],
     });
     setIsModalOpen(true);
   };
@@ -109,272 +112,198 @@ const ManageQuizzes: React.FC = () => {
   };
 
   const handleDelete = async (quizId: string) => {
-    if (!window.confirm('Are you sure you want to delete this quiz?')) return;
+    if (!window.confirm('Are you sure you want to delete this quiz? This action cannot be undone.')) return;
 
     try {
-      const response = await fetchWithAuth(`/api/admin/quizzes/${quizId}`, { method: 'DELETE' });
-      if (response.ok) {
-        toast.success('Quiz deleted successfully!');
-        if (selectedCourseId) {
-          fetchQuizzesByCourse(selectedCourseId);
-        }
-        window.dispatchEvent(new CustomEvent('quiz-updated')); // Notify other components
-      } else {
-        const errorData = await response.json().catch(() => ({ detail: 'An unknown error occurred.' }));
-        throw new Error(errorData.detail);
-      }
+      await fetchWithAuth(`/api/admin/quizzes/${quizId}`, { method: 'DELETE' });
+      toast.success('Quiz deleted successfully!');
+      if (selectedCourseId) fetchQuizzesByCourse(selectedCourseId);
     } catch (error) {
-      toast.error((error as Error).message || 'Failed to delete quiz.');
+      toast.error('Failed to delete quiz.');
     }
   };
 
   const handleSave = async () => {
     if (!currentQuiz) return;
 
-    const method = currentQuiz.id ? 'PUT' : 'POST';
-    const url = currentQuiz.id ? `/api/admin/quizzes/${currentQuiz.id}` : '/api/admin/quizzes';
-
-    const payload = {
+    const quizData = {
       ...currentQuiz,
-      course_id: selectedCourseId,
       due_date: currentQuiz.due_date ? new Date(currentQuiz.due_date).toISOString() : null,
     };
 
+    const url = currentQuiz.id ? `/api/admin/quizzes/${currentQuiz.id}` : '/api/admin/quizzes';
+    const method = currentQuiz.id ? 'PUT' : 'POST';
+
     try {
-      const response = await fetchWithAuth(url, {
+      await fetchWithAuth(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        data: payload,
+        data: quizData,
       });
-
-      await handleApiResponse(response);
       toast.success(`Quiz ${currentQuiz.id ? 'updated' : 'created'} successfully!`);
       setIsModalOpen(false);
-      if (selectedCourseId) {
-        fetchQuizzesByCourse(selectedCourseId);
-      }
-      window.dispatchEvent(new CustomEvent('quiz-updated'));
+      if (selectedCourseId) fetchQuizzesByCourse(selectedCourseId);
     } catch (error) {
       toast.error(`Failed to ${currentQuiz.id ? 'update' : 'create'} quiz.`);
     }
   };
 
   const handleQuestionChange = (qIndex: number, field: string, value: any) => {
-    if (!currentQuiz) return;
-    const newQuestions = [...currentQuiz.questions!];
-    (newQuestions[qIndex] as any)[field] = value;
-    setCurrentQuiz({ ...currentQuiz, questions: newQuestions });
+    const updatedQuestions = [...(currentQuiz?.questions || [])];
+    updatedQuestions[qIndex] = { ...updatedQuestions[qIndex], [field]: value };
+    setCurrentQuiz({ ...currentQuiz!, questions: updatedQuestions });
   };
 
   const handleOptionChange = (qIndex: number, oIndex: number, field: string, value: any) => {
-    if (!currentQuiz) return;
-    const newQuestions = [...currentQuiz.questions!];
-    (newQuestions[qIndex].options[oIndex] as any)[field] = value;
-    setCurrentQuiz({ ...currentQuiz, questions: newQuestions });
+    const updatedQuestions = [...(currentQuiz?.questions || [])];
+    const updatedOptions = [...updatedQuestions[qIndex].options];
+    updatedOptions[oIndex] = { ...updatedOptions[oIndex], [field]: value };
+    updatedQuestions[qIndex].options = updatedOptions;
+    setCurrentQuiz({ ...currentQuiz!, questions: updatedQuestions });
   };
 
   const addQuestion = () => {
-    if (!currentQuiz) return;
-    const newQuestions = [...(currentQuiz.questions || [])];
-    newQuestions.push({ text: '', options: [{ text: '', is_correct: false }, { text: '', is_correct: false }] });
-    setCurrentQuiz({ ...currentQuiz, questions: newQuestions });
+    const newQuestion = { text: 'New Question', options: [{ text: 'Option 1', is_correct: true }] };
+    setCurrentQuiz({ ...currentQuiz!, questions: [...(currentQuiz?.questions || []), newQuestion] });
   };
 
   const removeQuestion = (qIndex: number) => {
-    if (!currentQuiz) return;
-    const newQuestions = [...currentQuiz.questions!];
-    newQuestions.splice(qIndex, 1);
-    setCurrentQuiz({ ...currentQuiz, questions: newQuestions });
+    const updatedQuestions = (currentQuiz?.questions || []).filter((_, i) => i !== qIndex);
+    setCurrentQuiz({ ...currentQuiz!, questions: updatedQuestions });
   };
 
   const addOption = (qIndex: number) => {
-    if (!currentQuiz) return;
-    const newQuestions = [...currentQuiz.questions!];
-    newQuestions[qIndex].options.push({ text: '', is_correct: false });
-    setCurrentQuiz({ ...currentQuiz, questions: newQuestions });
+    const updatedQuestions = [...(currentQuiz?.questions || [])];
+    updatedQuestions[qIndex].options.push({ text: 'New Option', is_correct: false });
+    setCurrentQuiz({ ...currentQuiz!, questions: updatedQuestions });
   };
 
   const removeOption = (qIndex: number, oIndex: number) => {
-    if (!currentQuiz) return;
-    const newQuestions = [...currentQuiz.questions!];
-    newQuestions[qIndex].options.splice(oIndex, 1);
-    setCurrentQuiz({ ...currentQuiz, questions: newQuestions });
+    const updatedQuestions = [...(currentQuiz?.questions || [])];
+    updatedQuestions[qIndex].options = updatedQuestions[qIndex].options.filter((_, i) => i !== oIndex);
+    setCurrentQuiz({ ...currentQuiz!, questions: updatedQuestions });
   };
 
   return (
     <DashboardLayout userType="admin">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Manage Quizzes</h1>
-        <div className="flex items-center gap-4">
-          {loadingCourses ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
-          ) : (
-            <Select onValueChange={setSelectedCourseId} value={selectedCourseId}>
-              <SelectTrigger className="w-[250px]">
-                <SelectValue placeholder="Select a course" />
-              </SelectTrigger>
-              <SelectContent>
-                {courses.map((course) => (
-                  <SelectItem key={course.id} value={course.id}>
-                    {course.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <Button onClick={handleAdd}>
-            <PlusCircle className="h-4 w-4 mr-2" />
-            Add New Quiz
-          </Button>
+      <div className="relative min-h-screen w-full bg-gray-900 text-white overflow-hidden">
+        <div className="absolute inset-0 z-0">
+          <div className="absolute top-0 left-0 w-72 h-72 bg-purple-600 rounded-full filter blur-3xl opacity-30 animate-blob"></div>
+          <div className="absolute top-0 right-0 w-72 h-72 bg-pink-600 rounded-full filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
+          <div className="absolute bottom-0 left-1/4 w-72 h-72 bg-blue-600 rounded-full filter blur-3xl opacity-30 animate-blob animation-delay-4000"></div>
         </div>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Quiz List</CardTitle>
-          <CardDescription>A list of quizzes for the selected course.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loadingQuizzes ? (
-            <div className="flex justify-center items-center py-10">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : quizzes.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {quizzes.map((quiz) => (
-                  <TableRow key={quiz.id}>
-                    <TableCell className="font-medium">{quiz.title}</TableCell>
-                    <TableCell>{quiz.description}</TableCell>
-                    <TableCell>{quiz.due_date ? format(new Date(quiz.due_date), 'PPP') : 'N/A'}</TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(quiz)}>Edit Quiz</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDelete(quiz.id)}>Delete Quiz</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="text-center py-10">
-              <p className="text-gray-500">No quizzes found for this course.</p>
-              <p className="text-sm text-gray-400">Select a course to see its quizzes or add a new one.</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Add/Edit Quiz Modal */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-6xl h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>{currentQuiz?.id ? 'Edit Quiz' : 'Add New Quiz'}</DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-4 flex-grow overflow-hidden">
-            
-            {/* Left Column: Quiz Details */}
-            <div className="space-y-6 flex flex-col">
-              <h2 className="text-xl font-semibold border-b pb-2">Quiz Details</h2>
-              <div>
-                <Label htmlFor="title" className="text-sm font-medium">Title</Label>
-                <Input id="title" value={currentQuiz?.title || ''} onChange={(e) => setCurrentQuiz({ ...currentQuiz!, title: e.target.value })} className="mt-1" />
-              </div>
-              <div>
-                <Label htmlFor="description" className="text-sm font-medium">Description</Label>
-                <Textarea id="description" value={currentQuiz?.description || ''} onChange={(e) => setCurrentQuiz({ ...currentQuiz!, description: e.target.value })} className="mt-1" rows={4} />
-              </div>
-              <div>
-                <Label htmlFor="due_date" className="text-sm font-medium">Due Date</Label>
-                <Input id="due_date" type="date" value={currentQuiz?.due_date ? currentQuiz.due_date.split('T')[0] : ''} onChange={(e) => setCurrentQuiz({ ...currentQuiz!, due_date: e.target.value })} className="mt-1" />
-              </div>
-            </div>
-
-            {/* Right Column: Questions */}
-            <div className="flex flex-col overflow-hidden">
-              <div className="flex justify-between items-center border-b pb-2 mb-4">
-                <h2 className="text-xl font-semibold">Questions</h2>
-                <Button onClick={addQuestion} size="sm">
-                  <PlusCircle className="h-4 w-4 mr-2" />
-                  Add Question
+        <div className="relative z-10 p-4 sm:p-6 lg:p-8">
+          <Card className="bg-gray-900/50 backdrop-blur-lg border border-purple-500/20 shadow-2xl rounded-2xl">
+            <CardContent className="p-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-transparent bg-clip-text flex items-center gap-3">
+                  <ListChecks className="w-10 h-10" /> Manage Quizzes
+                </h1>
+                <Button onClick={handleAdd} disabled={!selectedCourseId} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold hover:scale-105 transition-transform shadow-lg disabled:opacity-50 disabled:scale-100">
+                  <Plus className="mr-2 h-5 w-5" /> Add New Quiz
                 </Button>
               </div>
-              <div className="flex-grow overflow-y-auto pr-4 space-y-4">
-                {currentQuiz?.questions?.map((q, qIndex) => (
-                  <div key={qIndex} className="p-4 border rounded-lg bg-slate-50/50 relative">
-                     <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-slate-500 hover:bg-red-100 hover:text-red-600" onClick={() => removeQuestion(qIndex)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    <div className="space-y-3">
-                      <Label htmlFor={`q-text-${qIndex}`} className="font-semibold text-red-600">{`Question ${qIndex + 1}`}</Label>
-                      <Textarea
-                        id={`q-text-${qIndex}`}
-                        placeholder="What is the capital of..."
-                        value={q.text}
-                        onChange={(e) => handleQuestionChange(qIndex, 'text', e.target.value)}
-                        className="bg-white text-black"
-                      />
-                      <div className="pl-4 pt-2 space-y-2">
+
+              <div className="mb-6">
+                <Select onValueChange={setSelectedCourseId} value={selectedCourseId}>
+                  <SelectTrigger className="w-full sm:w-[320px] bg-gray-800/70 border-gray-700 placeholder:text-gray-400 rounded-xl text-lg p-6">
+                    <SelectValue placeholder={loadingCourses ? "Loading courses..." : "Select a course to begin"} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-900/80 backdrop-blur-xl border-purple-500/30 text-white rounded-xl">
+                    {courses.map(course => (
+                      <SelectItem key={course.id} value={course.id} className="text-lg hover:bg-purple-500/20 cursor-pointer">{course.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {loadingQuizzes ? (
+                <div className="flex justify-center items-center py-20"><Loader2 className="h-12 w-12 animate-spin text-purple-400" /></div>
+              ) : quizzes.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <Table className="text-white">
+                    <TableHeader className="border-b border-gray-700"><TableRow className="hover:bg-transparent"><TableHead className="text-white/80">Title</TableHead><TableHead className="text-white/80">Description</TableHead><TableHead className="text-white/80">Due Date</TableHead><TableHead className="text-right text-white/80">Actions</TableHead></TableRow></TableHeader>
+                    <TableBody>
+                      {quizzes.map((quiz) => (
+                        <TableRow key={quiz.id} className="border-gray-800 hover:bg-gray-800/60">
+                          <TableCell className="font-medium text-lg">{quiz.title}</TableCell>
+                          <TableCell className="text-gray-400">{quiz.description}</TableCell>
+                          <TableCell>{quiz.due_date ? format(new Date(quiz.due_date), 'PPP') : 'N/A'}</TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0 text-gray-400 hover:text-white"><span className="sr-only">Open menu</span><MoreVertical className="h-5 w-5" /></Button></DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="bg-gray-900/80 backdrop-blur-xl border-purple-500/30 text-white rounded-xl">
+                                <DropdownMenuItem onClick={() => handleEdit(quiz)} className="cursor-pointer hover:bg-purple-500/20"><Edit className="mr-2 h-4 w-4" /> Edit</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleDelete(quiz.id)} className="text-red-500 cursor-pointer hover:!bg-red-500/20 hover:!text-red-400"><Trash2 className="mr-2 h-4 w-4" /> Delete</DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="text-center text-gray-400 py-20 bg-gray-900/30 rounded-xl border border-dashed border-gray-700">
+                  <BookOpenCheck className="mx-auto h-12 w-12 text-gray-500" />
+                  <h3 className="mt-4 text-lg font-semibold">No Quizzes Found</h3>
+                  <p className="mt-1 text-sm text-gray-500">{selectedCourseId ? 'This course has no quizzes yet.' : 'Please select a course to see its quizzes.'}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+          <DialogContent className="bg-gray-900/80 backdrop-blur-xl border-purple-500/30 text-white max-w-5xl h-[90vh] flex flex-col rounded-2xl shadow-2xl">
+            <DialogHeader><DialogTitle className="text-3xl font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-transparent bg-clip-text pb-2 flex items-center gap-3"><ClipboardEdit className="w-8 h-8" />{currentQuiz?.id ? 'Edit Quiz' : 'Create New Quiz'}</DialogTitle></DialogHeader>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow overflow-hidden">
+              {/* Left Column: Quiz Details */}
+              <div className="md:col-span-1 flex flex-col space-y-6 pr-4 border-r border-gray-700/50">
+                <div><Label htmlFor="title" className="text-gray-400 text-sm">Quiz Title</Label><Input id="title" value={currentQuiz?.title || ''} onChange={(e) => setCurrentQuiz({ ...currentQuiz!, title: e.target.value })} className="bg-gray-800/70 border-gray-700 focus:border-purple-500 mt-2" /></div>
+                <div><Label htmlFor="description" className="text-gray-400 text-sm">Description</Label><Textarea id="description" value={currentQuiz?.description || ''} onChange={(e) => setCurrentQuiz({ ...currentQuiz!, description: e.target.value })} className="bg-gray-800/70 border-gray-700 focus:border-purple-500 mt-2" /></div>
+                <div><Label className="text-gray-400 text-sm">Due Date</Label>
+                  <Popover><PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full justify-start text-left font-normal mt-2 bg-gray-800/70 border-gray-700 hover:bg-gray-800", !currentQuiz?.due_date && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{currentQuiz?.due_date ? format(new Date(currentQuiz.due_date), "PPP") : <span>Pick a date</span>}</Button></PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 bg-gray-900/80 backdrop-blur-xl border-purple-500/30 text-white rounded-xl"><Calendar mode="single" selected={currentQuiz?.due_date ? new Date(currentQuiz.due_date) : undefined} onSelect={(date) => setCurrentQuiz({...currentQuiz!, due_date: date?.toISOString() || null})} initialFocus /></PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+
+              {/* Right Column: Questions */}
+              <div className="md:col-span-2 flex flex-col overflow-hidden">
+                <div className="flex justify-between items-center pb-2 mb-4"><h2 className="text-xl font-semibold">Questions & Options</h2><Button onClick={addQuestion} size="sm" className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold hover:scale-105 transition-transform"><Plus className="h-4 w-4 mr-2" />Add Question</Button></div>
+                <div className="flex-grow overflow-y-auto pr-4 space-y-4 styled-scrollbar">
+                  {currentQuiz?.questions?.map((q, qIndex) => (
+                    <div key={qIndex} className="p-4 border border-gray-700/50 rounded-xl bg-gray-900/50 relative group">
+                      <div className="flex items-center justify-between mb-3">
+                        <Label htmlFor={`q-text-${qIndex}`} className="font-semibold text-purple-400">{`Question ${qIndex + 1}`}</Label>
+                        <Button variant="ghost" size="icon" className="text-gray-500 hover:bg-red-500/20 hover:text-red-400 rounded-full w-7 h-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeQuestion(qIndex)}><X className="h-4 w-4" /></Button>
+                      </div>
+                      <Textarea id={`q-text-${qIndex}`} placeholder="What is the capital of..." value={q.text} onChange={(e) => handleQuestionChange(qIndex, 'text', e.target.value)} className="bg-gray-800/70 border-gray-700 focus:border-purple-500" />
+                      <div className="pl-4 pt-4 space-y-3">
                         {q.options.map((opt, oIndex) => (
-                          <div key={oIndex} className="flex items-center gap-2">
-                            <Checkbox 
-                              id={`q-${qIndex}-opt-${oIndex}`}
-                              checked={opt.is_correct}
-                              onCheckedChange={(checked) => handleOptionChange(qIndex, oIndex, 'is_correct', checked)}
-                            />
-                            <Input
-                              placeholder={`Option ${oIndex + 1}`}
-                              value={opt.text}
-                              onChange={(e) => handleOptionChange(qIndex, oIndex, 'text', e.target.value)}
-                              className="flex-grow"
-                            />
-                            <Button variant="ghost" size="icon" className="text-slate-400 hover:bg-red-100 hover:text-red-500" onClick={() => removeOption(qIndex, oIndex)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                          <div key={oIndex} className="flex items-center gap-3 group/option">
+                            <Checkbox id={`q-${qIndex}-opt-${oIndex}`} checked={opt.is_correct} onCheckedChange={(checked) => handleOptionChange(qIndex, oIndex, 'is_correct', !!checked)} className="w-5 h-5 border-gray-600 data-[state=checked]:bg-green-500" />
+                            <Input placeholder={`Option ${oIndex + 1}`} value={opt.text} onChange={(e) => handleOptionChange(qIndex, oIndex, 'text', e.target.value)} className="flex-grow bg-gray-800/70 border-gray-700 focus:border-cyan-500" />
+                            <Button variant="ghost" size="icon" className="text-gray-600 hover:bg-red-500/20 hover:text-red-400 rounded-full w-7 h-7 opacity-0 group-hover/option:opacity-100 transition-opacity" onClick={() => removeOption(qIndex, oIndex)}><X className="h-4 w-4" /></Button>
                           </div>
                         ))}
-                        <Button variant="outline" size="sm" className="mt-2" onClick={() => addOption(qIndex)}>
-                          <PlusCircle className="h-3 w-3 mr-2" />
-                          Add Option
-                        </Button>
+                        <Button variant="outline" size="sm" className="mt-2 border-dashed border-gray-600 text-gray-400 hover:bg-gray-700/50 hover:text-white" onClick={() => addOption(qIndex)}><Plus className="h-3 w-3 mr-2" />Add Option</Button>
                       </div>
                     </div>
-                  </div>
-                ))}
-                 {currentQuiz?.questions?.length === 0 && (
-                    <div className="text-center py-10 border-2 border-dashed rounded-lg">
-                      <p className="text-slate-500">No questions yet.</p>
-                      <p className="text-sm text-slate-400">Click "Add Question" to start building your quiz.</p>
+                  ))}
+                  {currentQuiz?.questions?.length === 0 && (
+                    <div className="text-center py-16 border-2 border-dashed border-gray-700 rounded-lg">
+                      <p className="text-gray-500">No questions yet.</p>
+                      <p className="text-sm text-gray-400">Click "Add Question" to start building your quiz.</p>
                     </div>
                   )}
+                </div>
               </div>
             </div>
-          </div>
-          <DialogFooter className="mt-auto pt-4 border-t">
-            <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
-            </DialogClose>
-            <Button onClick={handleSave}>Save Quiz</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter className="mt-auto pt-4 border-t border-gray-700/50 gap-2 sm:gap-0"><Button variant="outline" onClick={() => setIsModalOpen(false)} className="border-gray-700 hover:bg-gray-800">Cancel</Button><Button onClick={handleSave} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold hover:scale-105 transition-transform">Save Quiz</Button></DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </DashboardLayout>
   );
 };

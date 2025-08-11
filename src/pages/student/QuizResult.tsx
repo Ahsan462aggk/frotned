@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import DashboardLayout from "@/components/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertCircle, CheckCircle, XCircle } from "lucide-react";
 import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
@@ -87,42 +87,55 @@ const QuizResult = () => {
     );
   }
 
+  const percentage = ((result.score / result.total_questions) * 100).toFixed(2);
+
   return (
     <DashboardLayout userType="student">
-      <div className="container mx-auto p-4 md:p-8">
-        <Card>
-          <CardHeader className="text-center">
-            <CardTitle className="text-3xl">Quiz Results</CardTitle>
-            <CardDescription className="text-xl">{result.quiz_title}</CardDescription>
-            <div className="mt-4">
-              <p className="text-4xl font-bold">Your Score: {result.score}/{result.total_questions}</p>
-              <p className="text-lg text-muted-foreground">({((result.score / result.total_questions) * 100).toFixed(2)}%)</p>
+      <div className="relative min-h-screen w-full bg-gray-900 text-white overflow-hidden p-4 sm:p-6 lg:p-8">
+        <div className="absolute inset-0 z-0">
+          <div className="absolute -top-20 -left-20 w-80 h-80 bg-purple-600 rounded-full filter blur-3xl opacity-20 animate-blob"></div>
+          <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-pink-600 rounded-full filter blur-3xl opacity-20 animate-blob animation-delay-3000"></div>
+        </div>
+
+        <div className="relative z-10 max-w-4xl mx-auto">
+          <div className="bg-gray-900/50 backdrop-blur-xl border border-white/10 shadow-2xl rounded-2xl p-6 sm:p-8">
+            <div className="text-center mb-8">
+              <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 text-transparent bg-clip-text mb-2">Quiz Results</h1>
+              <p className="text-xl text-gray-300">{result.quiz_title}</p>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <h3 className="text-2xl font-semibold border-b pb-2">Review Your Answers</h3>
-            {result.answers.map((ans, index) => (
-              <div key={ans.question_id} className={`p-4 rounded-lg ${ans.is_correct ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border`}>
-                <p className="font-semibold mb-2 text-black">{index + 1}. {ans.question_text}</p>
-                <div className="flex items-center space-x-2">
-                  {ans.is_correct ? <CheckCircle className="h-5 w-5 text-green-600" /> : <XCircle className="h-5 w-5 text-red-600" />}
-                  <p>Your answer: <span className={ans.is_correct ? 'text-green-700' : 'text-red-700'}>{ans.selected_option_text}</span></p>
-                </div>
-                {!ans.is_correct && (
-                  <div className="flex items-center space-x-2 mt-2">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                    <p>Correct answer: <span className="text-green-700">{ans.correct_option_text}</span></p>
+
+            <div className="text-center bg-gray-900/40 border border-white/10 rounded-2xl p-8 mb-10">
+              <p className="text-gray-400 text-lg">Your Score</p>
+              <p className="text-6xl font-bold text-white my-2">{result.score} <span className="text-4xl text-gray-500">/ {result.total_questions}</span></p>
+              <p className="text-2xl font-bold text-purple-400">{percentage}%</p>
+            </div>
+
+            <div className="space-y-6">
+              <h3 className="text-2xl font-semibold text-white text-center mb-6">Review Your Answers</h3>
+              {result.answers.map((ans, index) => (
+                <div key={ans.question_id} className={`bg-gray-900/50 p-6 rounded-xl border-l-4 ${ans.is_correct ? 'border-green-500' : 'border-red-500'}`}>
+                  <p className="text-lg font-semibold mb-4 text-gray-300">{index + 1}. {ans.question_text}</p>
+                  <div className={`flex items-start space-x-3 p-3 rounded-md ${ans.is_correct ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
+                    {ans.is_correct ? <CheckCircle className="h-5 w-5 text-green-500 mt-1 flex-shrink-0" /> : <XCircle className="h-5 w-5 text-red-500 mt-1 flex-shrink-0" />}
+                    <p className="text-gray-300">Your answer: <span className={`font-semibold ${ans.is_correct ? 'text-green-400' : 'text-red-400'}`}>{ans.selected_option_text}</span></p>
                   </div>
-                )}
-              </div>
-            ))}
-            <div className="text-center mt-8">
-                <Button asChild>
-                    <Link to="/student/quizzes">Back to Quizzes</Link>
-                </Button>
+                  {!ans.is_correct && (
+                    <div className="flex items-start space-x-3 mt-3 p-3 rounded-md bg-green-500/10">
+                      <CheckCircle className="h-5 w-5 text-green-500 mt-1 flex-shrink-0" />
+                      <p className="text-gray-300">Correct answer: <span className="font-semibold text-green-400">{ans.correct_option_text}</span></p>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
-          </CardContent>
-        </Card>
+
+            <div className="text-center mt-10">
+              <Button asChild className="bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold shadow-lg hover:scale-105 transform transition-transform duration-300 px-8 py-3 text-lg">
+                <Link to="/student/quizzes">Back to Quizzes</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     </DashboardLayout>
   );

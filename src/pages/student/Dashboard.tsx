@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from "@/components/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Loader2, Download } from "lucide-react";
 import { fetchWithAuth, UnauthorizedError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
@@ -138,32 +136,34 @@ const Dashboard = () => {
 
   return (
     <DashboardLayout userType="student">
-      <div className="space-y-8">
-        <h1 className="text-2xl sm:text-3xl font-bold">Welcome back, {userName}!</h1>
-        
-        {allAnalytics.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {allAnalytics.map(analytics => (
-              <Card key={analytics.course_id} className="flex flex-col">
-                <CardHeader>
-                  <CardTitle>{analytics.course.title}</CardTitle>
-                </CardHeader>
-                <CardContent className="flex-grow">
+      <div className="relative min-h-screen w-full bg-gray-900 text-white overflow-hidden p-4 sm:p-6 lg:p-8">
+        <div className="absolute inset-0 z-0">
+          <div className="absolute -top-20 -left-20 w-80 h-80 bg-purple-600 rounded-full filter blur-3xl opacity-20 animate-blob"></div>
+          <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-pink-600 rounded-full filter blur-3xl opacity-20 animate-blob animation-delay-3000"></div>
+        </div>
+
+        <div className="relative z-10">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 text-transparent bg-clip-text mb-8">Welcome back, {userName}!</h1>
+          
+          {allAnalytics.length > 0 ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {allAnalytics.map(analytics => (
+                <div key={analytics.course_id} className="bg-gray-900/50 backdrop-blur-xl border border-white/10 shadow-2xl rounded-2xl p-6 flex flex-col">
+                  <h2 className="text-2xl font-bold text-white mb-4">{analytics.course.title}</h2>
                   <AnalyticsDisplay 
                     analytics={analytics} 
                     onGetCertificate={() => handleGetCertificate(analytics.course_id)}
                     isCertificateLoading={!!isCertificateLoading[analytics.course_id]}
                   />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center h-64 flex items-center justify-center bg-muted/20 rounded-lg">
-            <p className='text-muted-foreground'>You are not enrolled in any courses yet. Explore our courses to get started!</p>
-          </div>
-        )}
-
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center h-64 flex items-center justify-center bg-gray-900/50 backdrop-blur-xl border border-white/10 rounded-2xl">
+              <p className='text-gray-400'>You are not enrolled in any courses yet. Explore our courses to get started!</p>
+            </div>
+          )}
+        </div>
       </div>
     </DashboardLayout>
   );
@@ -171,60 +171,45 @@ const Dashboard = () => {
 
 // --- HELPER COMPONENTS ---
 const AnalyticsDisplay = ({ analytics, onGetCertificate, isCertificateLoading }: { analytics: AnalyticsData, onGetCertificate: () => void, isCertificateLoading: boolean }) => (
-  <div className="space-y-6">
-    <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-      <div className="flex-1 relative">
-        {/* Background course name watermark */}
-        <span
-          className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none z-0"
-          style={{
-            left: 0,
-            top: 0,
-            width: '100%',
-            height: '100%',
-            overflow: 'hidden',
-            textAlign: 'center',
-          }}
-        >
-          <span className="text-2xl sm:text-4xl font-bold text-gray-300 dark:text-gray-700 opacity-10 tracking-widest mb-2">Course</span>
-          <span className="text-4xl sm:text-6xl font-extrabold text-gray-300 dark:text-gray-700 opacity-10 whitespace-nowrap">{analytics.course.title}</span>
-        </span>
-        {/* Main stats and progress go here (z-10) */}
-        <div className="relative z-10">
-          {/* Add your stats/progress bars/components here as before */}
+  <div className="space-y-6 flex flex-col flex-grow">
+    <div className="flex-grow space-y-6">
+      <div>
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-sm font-medium text-gray-300">Overall Progress</span>
+          <span className="text-sm font-bold bg-gradient-to-r from-purple-400 to-pink-500 text-transparent bg-clip-text">{analytics.progress}%</span>
+        </div>
+        <div className="w-full bg-gray-700/50 rounded-full h-2.5">
+          <div className="bg-gradient-to-r from-purple-500 to-pink-500 h-2.5 rounded-full" style={{ width: `${analytics.progress}%` }}></div>
         </div>
       </div>
-      <div className="flex items-center gap-2">
-        {analytics.progress === 100 && (
-          <Button onClick={onGetCertificate} disabled={isCertificateLoading}>
-            {isCertificateLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />} 
-            Get Certificate
-          </Button>
-        )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <StatCard title="Videos Watched" value={`${analytics.videos.watched} / ${analytics.videos.total}`} />
+        <StatCard title="Assignments Submitted" value={`${analytics.assignments.submitted} / ${analytics.assignments.total}`} />
+        <StatCard title="Quizzes Attempted" value={`${analytics.quizzes.attempted} / ${analytics.quizzes.total}`} />
       </div>
     </div>
 
-    <div>
-      <div className="flex justify-between items-center mb-1">
-        <span className="text-sm font-medium">Overall Progress</span>
-        <span className="text-sm font-bold">{analytics.progress}%</span>
-      </div>
-      <Progress value={analytics.progress} className="w-full" />
-    </div>
-
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <StatCard title="Videos Watched" value={`${analytics.videos.watched} / ${analytics.videos.total}`} />
-      <StatCard title="Assignments Submitted" value={`${analytics.assignments.submitted} / ${analytics.assignments.total}`} />
-      <StatCard title="Quizzes Attempted" value={`${analytics.quizzes.attempted} / ${analytics.quizzes.total}`} />
+    <div className="mt-auto pt-4">
+      {analytics.progress === 100 && (
+        <Button 
+          onClick={onGetCertificate} 
+          disabled={isCertificateLoading} 
+          className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold shadow-lg hover:scale-105 transform transition-transform duration-300 disabled:opacity-50 disabled:scale-100"
+        >
+          {isCertificateLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />} 
+          Get Certificate
+        </Button>
+      )}
     </div>
   </div>
 );
 
 const StatCard = ({ title, value }: { title: string, value: string }) => (
-  <Card>
-    <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">{title}</CardTitle></CardHeader>
-    <CardContent><p className="text-xl sm:text-2xl font-bold">{value}</p></CardContent>
-  </Card>
+  <div className="bg-white/10 backdrop-blur-sm p-4 rounded-lg text-center border border-white/10 shadow-lg">
+    <p className="text-sm text-gray-300 font-medium">{title}</p>
+    <p className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 text-transparent bg-clip-text">{value}</p>
+  </div>
 );
 
 export default Dashboard;

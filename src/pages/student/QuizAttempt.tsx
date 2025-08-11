@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import DashboardLayout from "@/components/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -148,32 +148,45 @@ const QuizAttempt = () => {
 
   return (
     <DashboardLayout userType="student">
-      <div className="container mx-auto p-4 md:p-8">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl sm:text-3xl">{quiz.title}</CardTitle>
-            <CardDescription>{quiz.description}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-8">
-            {quiz.questions.map((q, index) => (
-              <div key={q.id}>
-                <p className="font-semibold mb-4">{index + 1}. {q.text}</p>
-                  <RadioGroup onValueChange={(value) => handleAnswerChange(q.id, value)}>
+      <div className="relative min-h-screen w-full bg-gray-900 text-white overflow-hidden p-4 sm:p-6 lg:p-8">
+        <div className="absolute inset-0 z-0">
+          <div className="absolute -top-20 -left-20 w-80 h-80 bg-purple-600 rounded-full filter blur-3xl opacity-20 animate-blob"></div>
+          <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-pink-600 rounded-full filter blur-3xl opacity-20 animate-blob animation-delay-3000"></div>
+          <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-blue-600 rounded-full filter blur-3xl opacity-10 animate-blob animation-delay-5000"></div>
+        </div>
+
+        <div className="relative z-10 max-w-4xl mx-auto">
+          <div className="bg-gray-900/50 backdrop-blur-xl border border-white/10 shadow-2xl rounded-2xl p-6 sm:p-8">
+            <div className="text-center mb-8">
+              <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 text-transparent bg-clip-text mb-2">{quiz.title}</h1>
+              <p className="text-gray-400 max-w-2xl mx-auto">{quiz.description}</p>
+            </div>
+
+            <div className="space-y-10">
+              {quiz.questions.map((q, index) => (
+                <div key={q.id} className="bg-gray-900/40 p-6 rounded-xl border border-white/10">
+                  <p className="text-xl font-semibold mb-6 text-white"><span className="text-purple-400">{index + 1}.</span> {q.text}</p>
+                  <RadioGroup onValueChange={(value) => handleAnswerChange(q.id, value)} className="space-y-4">
                     {q.options.map(opt => (
-                      <div key={opt.id} className="flex items-center space-x-2">
-                        <RadioGroupItem value={opt.id} id={`${q.id}-${opt.id}`} />
-                        <Label htmlFor={`${q.id}-${opt.id}`}>{opt.text}</Label>
-                      </div>
+                      <Label key={opt.id} htmlFor={`${q.id}-${opt.id}`} className="flex items-center p-4 rounded-lg bg-gray-800/50 border border-transparent hover:border-purple-500 cursor-pointer transition-all duration-300">
+                        <RadioGroupItem value={opt.id} id={`${q.id}-${opt.id}`} className="text-purple-500 border-gray-600" />
+                        <span className="ml-4 text-lg text-gray-300">{opt.text}</span>
+                      </Label>
                     ))}
                   </RadioGroup>
-              </div>
-            ))}
-            <Button onClick={handleSubmit} disabled={submitting} className="w-full mt-8">
-              {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Submit Quiz
-            </Button>
-          </CardContent>
-        </Card>
+                </div>
+              ))}
+              <Button 
+                onClick={handleSubmit} 
+                disabled={submitting} 
+                className="w-full mt-8 py-3 text-lg font-bold bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg hover:scale-105 transform transition-transform duration-300 disabled:opacity-50 disabled:scale-100"
+              >
+                {submitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
+                Submit Quiz
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     </DashboardLayout>
   );

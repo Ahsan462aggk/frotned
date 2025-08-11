@@ -44,12 +44,12 @@ const courseFormSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
   description: z.string().min(10, 'Description must be at least 10 characters'),
   price: z.coerce.number().min(0, 'Price cannot be negative'),
-  thumbnail: z.any().optional(),
-  difficulty_level: z.string().optional(),
-  outcomes: z.string().optional(),
-  prerequisites: z.string().optional(),
-  curriculum: z.string().optional(),
-  status: z.string().optional(),
+  thumbnail: z.any().optional(), // Thumbnail is handled separately and validated in the submit handler
+  difficulty_level: z.string().min(1, 'Difficulty level is required'),
+  outcomes: z.string().min(1, 'Outcomes are required'),
+  prerequisites: z.string().min(1, 'Prerequisites are required'),
+  curriculum: z.string().min(1, 'Curriculum is required'),
+  status: z.string().min(1, 'Status is required'),
 });
 
 type CourseFormData = z.infer<typeof courseFormSchema>;
@@ -235,165 +235,112 @@ export default function AdminCourses() {
 
   return (
     <DashboardLayout userType="admin">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Courses</h1>
-        <Button onClick={openNewDialog}><PlusCircle className="mr-2 h-4 w-4" /> Add New Course</Button>
-      </div>
+      <div className="relative p-4 sm:p-6 lg:p-8 bg-gray-900 min-h-screen text-white">
+        {/* Animated Gradient Orbs */}
+        <div className="absolute inset-0 -z-10 overflow-hidden">
+          <div className="absolute top-1/4 left-1/4 w-72 h-72 md:w-96 md:h-96 bg-gradient-to-br from-purple-600 to-pink-500 rounded-full filter blur-3xl opacity-20 animate-blob"></div>
+          <div className="absolute bottom-1/4 right-1/4 w-72 h-72 md:w-96 md:h-96 bg-gradient-to-br from-blue-500 to-teal-400 rounded-full filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
+        </div>
 
-      <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Title</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead>Enrollments</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-4">Loading...</TableCell></TableRow>
-            ) : courses.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-4">No courses found.</TableCell></TableRow>
-            ) : (
-              courses.map((course) => (
-                <TableRow key={course._id}>
-                  <TableCell className="font-medium">{course.title}</TableCell>
-                  <TableCell>PKR {course.price}</TableCell>
-                  <TableCell>{course.total_enrollments}</TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs ${course.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                      {course.status === 'active' ? 'Active' : course.status ? course.status.charAt(0).toUpperCase() + course.status.slice(1) : 'Draft'}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => openEditDialog(course)}><Pencil className="h-4 w-4" /></Button>
-                    <Button variant="destructive" size="sm" onClick={() => openDeleteDialog(course.id)}><Trash2 className="h-4 w-4" /></Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+        <div className="max-w-7xl mx-auto relative z-10">
+          <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
+            <div>
+              <h1 className="text-4xl font-bold tracking-tight">
+                Manage <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-transparent bg-clip-text">Courses</span>
+              </h1>
+              <p className="text-gray-400 mt-1">Create, update, and manage all courses on the platform.</p>
+            </div>
+            <Button 
+              onClick={openNewDialog} 
+              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transform hover:scale-105 transition-transform duration-300 shadow-lg shadow-purple-500/30 rounded-full py-3 px-6 text-base font-semibold flex items-center gap-2"
+            >
+              <PlusCircle className="mr-2 h-5 w-5" /> Add New Course
+            </Button>
+          </div>
+
+          <div className="bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 shadow-xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table className="w-full">
+                <TableHeader>
+                  <TableRow className="border-b border-white/20">
+                    <TableHead className="p-4 text-sm font-semibold text-gray-300 uppercase tracking-wider">Title</TableHead>
+                    <TableHead className="p-4 text-sm font-semibold text-gray-300 uppercase tracking-wider">Price</TableHead>
+                    <TableHead className="p-4 text-sm font-semibold text-gray-300 uppercase tracking-wider">Enrollments</TableHead>
+                    <TableHead className="p-4 text-sm font-semibold text-gray-300 uppercase tracking-wider">Status</TableHead>
+                    <TableHead className="p-4 text-sm font-semibold text-gray-300 uppercase tracking-wider text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow><TableCell colSpan={5} className="text-center py-12 text-gray-400">Loading courses...</TableCell></TableRow>
+                  ) : courses.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} className="text-center py-12 text-gray-400">No courses found.</TableCell></TableRow>
+                  ) : (
+                    courses.map((course) => (
+                      <TableRow key={course._id} className="border-b border-white/10 hover:bg-white/5 transition-colors duration-200">
+                        <TableCell className="p-4 font-medium text-white">{course.title}</TableCell>
+                        <TableCell className="p-4 text-gray-300">PKR {course.price}</TableCell>
+                        <TableCell className="p-4 text-gray-300">{course.total_enrollments}</TableCell>
+                        <TableCell className="p-4">
+                          <span className={`px-3 py-1 text-xs font-semibold rounded-full ${course.status === 'active' ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'}`}>
+                            {course.status ? course.status.charAt(0).toUpperCase() + course.status.slice(1) : 'Draft'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="p-4 flex justify-end gap-3">
+                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(course)} className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-full"><Pencil className="h-5 w-5" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(course.id)} className="text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-full"><Trash2 className="h-5 w-5" /></Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </div>
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={(isOpen) => !isSubmitting && (isOpen ? setIsDialogOpen(true) : resetDialogState())}>
-        <DialogContent className="max-w-4xl p-0 overflow-hidden border-0 shadow-2xl rounded-2xl bg-background">
-          <div className="sticky top-0 z-10 bg-card/80 backdrop-blur-md px-8 py-7 flex items-center gap-5 rounded-t-2xl border-b border-border shadow-sm">
-            <span className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-muted shadow ring-2 ring-primary/10">
-              <PlusCircle className="w-8 h-8 text-primary" />
+        <DialogContent className="max-w-4xl p-0 overflow-hidden border-0 shadow-2xl rounded-2xl bg-gray-900/80 backdrop-blur-xl border-purple-500/30 text-white">
+          <div className="sticky top-0 z-10 px-8 py-7 flex items-center gap-5 rounded-t-2xl border-b border-white/10 shadow-sm">
+            <span className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-purple-500/10 shadow ring-2 ring-purple-500/20">
+              <PlusCircle className="w-8 h-8 text-purple-400" />
             </span>
             <div>
-              <DialogTitle className="text-2xl font-extrabold tracking-tight mb-1 text-foreground">{selectedCourse ? 'Edit Course' : 'Create New Course'}</DialogTitle>
-              <DialogDescription className="text-base text-muted-foreground">{selectedCourse ? 'Update the details of your course.' : 'Fill in the details to create a new course.'}</DialogDescription>
+              <DialogTitle className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">{selectedCourse ? 'Edit Course' : 'Create New Course'}</DialogTitle>
+              <DialogDescription className="text-base text-gray-400">{selectedCourse ? 'Update the details of your course.' : 'Fill in the details to create a new course.'}</DialogDescription>
             </div>
           </div>
           <FormProvider {...form}>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-10 py-8 px-8 max-h-[80vh] overflow-y-auto bg-transparent">
-                {/* Basic Info Section */}
-                <div className="rounded-xl shadow-md bg-card border border-border p-6 mb-2">
-                  <div className="flex items-center gap-3 mb-6">
-                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
-                      <Pencil className="w-5 h-5 text-primary" />
-                    </span>
-                    <h2 className="text-lg font-bold text-primary tracking-wide">Basic Information</h2>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-8 px-8 max-h-[70vh] overflow-y-auto bg-transparent custom-scrollbar">
+                {/* Form fields with new styling */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel className="text-gray-300">Title</FormLabel><FormControl><Input {...field} className="bg-gray-800/60 border-gray-700 rounded-lg focus:ring-purple-500 focus:border-purple-500" /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel className="text-gray-300">Description</FormLabel><FormControl><Textarea {...field} className="bg-gray-800/60 border-gray-700 rounded-lg focus:ring-purple-500 focus:border-purple-500" rows={5} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="price" render={({ field }) => (<FormItem><FormLabel className="text-gray-300">Price</FormLabel><FormControl><Input type="number" {...field} className="bg-gray-800/60 border-gray-700 rounded-lg focus:ring-purple-500 focus:border-purple-500" /></FormControl><FormMessage /></FormItem>)} />
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} placeholder="e.g., Introduction to Programming" /></FormControl><FormMessage /></FormItem>)} />
-                      <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Textarea {...field} placeholder="Describe your course" rows={5} /></FormControl><FormMessage /></FormItem>)} />
-                      <FormField control={form.control} name="price" render={({ field }) => (<FormItem><FormLabel>Price</FormLabel><FormControl><Input type="number" {...field} placeholder="e.g., 99.99" /></FormControl><FormMessage /></FormItem>)} />
-                    </div>
-                    <div className="space-y-4">
-                      <FormItem>
-                        <FormLabel>Thumbnail</FormLabel>
-                        <FormControl>
-                          <FileUploader onUpload={handleThumbnailChange} value={thumbnailFile ? [thumbnailFile] : []} maxSize={2 * 1024 * 1024} multiple={false} />
-                        </FormControl>
-                      </FormItem>
-                      {thumbnailPreview && <img src={thumbnailPreview} alt="Thumbnail preview" className="h-40 w-full rounded-lg border-2 border-border shadow-lg object-cover mt-2" />}
-                    </div>
+                  <div className="space-y-4">
+                    <FormItem>
+                      <FormLabel className="text-gray-300">Thumbnail</FormLabel>
+                      <FormControl>
+                        <FileUploader onUpload={handleThumbnailChange} value={thumbnailFile ? [thumbnailFile] : []} maxSize={2 * 1024 * 1024} multiple={false} />
+                      </FormControl>
+                    </FormItem>
+                    {thumbnailPreview && <img src={thumbnailPreview} alt="Thumbnail preview" className="h-40 w-full rounded-lg border-2 border-white/20 shadow-lg object-cover mt-2" />} 
                   </div>
                 </div>
-                {/* Divider */}
-                <div className="flex items-center gap-2 my-2">
-                  <div className="flex-1 h-px bg-border" />
-                  <span className="text-xs text-muted-foreground font-bold uppercase tracking-widest">Course Details</span>
-                  <div className="flex-1 h-px bg-border" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-white/10">
+                  <FormField control={form.control} name="difficulty_level" render={({ field }) => (<FormItem><FormLabel className="text-gray-300">Difficulty</FormLabel><FormControl><select {...field} className="w-full p-2 border rounded-lg bg-gray-800/60 text-white border-gray-700 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50"><option value="Beginner">Beginner</option><option value="Intermediate">Intermediate</option><option value="Advanced">Advanced</option></select></FormControl></FormItem>)} />
+                  <FormField control={form.control} name="status" render={({ field }) => (<FormItem><FormLabel className="text-gray-300">Status</FormLabel><FormControl><select {...field} className="w-full p-2 border rounded-lg bg-gray-800/60 text-white border-gray-700 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50"><option value="draft">Draft</option><option value="active">Active</option></select></FormControl></FormItem>)} />
+                  <FormField control={form.control} name="outcomes" render={({ field }) => (<FormItem className="md:col-span-2"><FormLabel className="text-gray-300">Outcomes</FormLabel><FormControl><Textarea {...field} className="bg-gray-800/60 border-gray-700 rounded-lg focus:ring-purple-500 focus:border-purple-500" /></FormControl></FormItem>)} />
+                  <FormField control={form.control} name="prerequisites" render={({ field }) => (<FormItem className="md:col-span-2"><FormLabel className="text-gray-300">Prerequisites</FormLabel><FormControl><Textarea {...field} className="bg-gray-800/60 border-gray-700 rounded-lg focus:ring-purple-500 focus:border-purple-500" /></FormControl></FormItem>)} />
+                  <FormField control={form.control} name="curriculum" render={({ field }) => (<FormItem className="md:col-span-2"><FormLabel className="text-gray-300">Curriculum</FormLabel><FormControl><Textarea {...field} className="bg-gray-800/60 border-gray-700 rounded-lg focus:ring-purple-500 focus:border-purple-500" /></FormControl></FormItem>)} />
                 </div>
-                {/* Details Section */}
-                <div className="rounded-xl shadow-md bg-card border border-border p-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10">
-                          <PlusCircle className="w-4 h-4 text-primary" />
-                        </span>
-                        <h3 className="text-md font-semibold text-primary">Level & Status</h3>
-                      </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <FormLabel htmlFor="difficulty_level" className="text-right">Difficulty</FormLabel>
-                        <FormField control={form.control} name="difficulty_level" render={({ field }) => (
-                          <FormControl>
-                            <select id="difficulty_level" {...field} className="p-2 border rounded-lg col-span-3 bg-background text-foreground border-border focus:border-primary focus:ring-2 focus:ring-primary/10">
-                              <option value="Beginner">Beginner</option>
-                              <option value="Intermediate">Intermediate</option>
-                              <option value="Advanced">Advanced</option>
-                            </select>
-                          </FormControl>
-                        )} />
-                      </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <FormLabel htmlFor="status" className="text-right">Status</FormLabel>
-                        <FormField control={form.control} name="status" render={({ field }) => (
-                          <FormControl>
-                            <select id="status" {...field} className="p-2 border rounded-lg col-span-3 bg-background text-foreground border-border focus:border-primary focus:ring-2 focus:ring-primary/10">
-                              <option value="draft">Draft</option>
-                              <option value="active">Active</option>
-                            </select>
-                          </FormControl>
-                        )} />
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-pink-100 dark:bg-pink-900/20">
-                          <PlusCircle className="w-4 h-4 text-pink-600 dark:text-pink-300" />
-                        </span>
-                        <h3 className="text-md font-semibold text-pink-700 dark:text-pink-300">Outcomes, Prerequisites & Curriculum</h3>
-                      </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <FormLabel htmlFor="outcomes" className="text-right">Outcomes</FormLabel>
-                        <FormField control={form.control} name="outcomes" render={({ field }) => (
-                          <FormControl>
-                            <Textarea id="outcomes" {...field} className="col-span-3 rounded-lg border-border focus:border-pink-400 focus:ring-2 focus:ring-pink-100" />
-                          </FormControl>
-                        )} />
-                      </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <FormLabel htmlFor="prerequisites" className="text-right">Prerequisites</FormLabel>
-                        <FormField control={form.control} name="prerequisites" render={({ field }) => (
-                          <FormControl>
-                            <Textarea id="prerequisites" {...field} className="col-span-3 rounded-lg border-border focus:border-pink-400 focus:ring-2 focus:ring-pink-100" />
-                          </FormControl>
-                        )} />
-                      </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <FormLabel htmlFor="curriculum" className="text-right">Curriculum</FormLabel>
-                        <FormField control={form.control} name="curriculum" render={({ field }) => (
-                          <FormControl>
-                            <Textarea id="curriculum" {...field} className="col-span-3 rounded-lg border-border focus:border-pink-400 focus:ring-2 focus:ring-pink-100" />
-                          </FormControl>
-                        )} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <DialogFooter className="pt-6 flex justify-end gap-4">
-                  <Button type="button" variant="outline" onClick={resetDialogState} disabled={isSubmitting} className="rounded-lg border-gray-300 text-gray-700 hover:bg-gray-50">Cancel</Button>
-                  <Button type="submit" disabled={isSubmitting} className="rounded-lg bg-primary text-primary-foreground font-semibold shadow-lg px-8 py-3 hover:bg-primary/90">
+                <DialogFooter className="pt-6 flex justify-end gap-4 border-t border-white/10">
+                  <Button type="button" variant="outline" onClick={resetDialogState} disabled={isSubmitting} className="rounded-full bg-transparent border-gray-600 hover:bg-gray-700 text-gray-300">Cancel</Button>
+                  <Button type="submit" disabled={isSubmitting} className="rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold shadow-lg px-8 py-3 hover:scale-105 transform transition-transform">
                     {isSubmitting ? 'Saving...' : (selectedCourse ? 'Save Changes' : 'Create Course')}
                   </Button>
                 </DialogFooter>
@@ -404,14 +351,14 @@ export default function AdminCourses() {
       </Dialog>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-gray-900/80 backdrop-blur-xl border-red-500/30 text-white rounded-2xl shadow-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>This will permanently delete the course and all its contents. This action cannot be undone.</AlertDialogDescription>
+            <AlertDialogTitle className="font-bold text-red-400">Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-400">This will permanently delete the course. This action cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteCourse} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+            <AlertDialogCancel className="rounded-full bg-transparent border-gray-600 hover:bg-gray-700 text-gray-300">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteCourse} className="rounded-full bg-red-600 text-white hover:bg-red-700">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

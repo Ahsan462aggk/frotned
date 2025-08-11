@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Loader2, AlertCircle, Upload, Play, CheckCircle, Circle } from 'lucide-react';
+import { ClipboardEdit, Loader2, Upload, Send, CheckCircle, Info, AlertCircle, Play, Circle } from 'lucide-react';
 import { fetchWithAuth, handleApiResponse, UnauthorizedError } from '@/lib/api';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Badge } from '@/components/ui/badge';
@@ -788,6 +788,7 @@ const PaymentStatusCard: FC<{
 const CourseDetail: FC = () => {
     const { courseId } = useParams<{ courseId: string }>();
     const navigate = useNavigate();
+    const enrollmentFormRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const paymentFileInputRef = useRef<HTMLInputElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -809,6 +810,7 @@ const CourseDetail: FC = () => {
         qualification_certificate: null
     });
     const [showPaymentForm, setShowPaymentForm] = useState(false);
+    const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
     const [paymentFile, setPaymentFile] = useState<File | null>(null);
     const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
     const [purchaseInfo, setPurchaseInfo] = useState<PurchaseInfo | null>(null);
@@ -848,7 +850,7 @@ const CourseDetail: FC = () => {
                         setPaymentStatus(paymentStatusData.status);
                     } catch (paymentError) {
                         console.log('No payment proof submitted yet or error fetching status.');
-                        setPaymentStatus('PENDING'); // Default to PENDING if no status is returned
+                        setApplicationStatus('PENDING'); // Default to PENDING if no status is returned
                     }
                 } else {
                     setPaymentStatus(null); // Reset payment status if application is not approved
@@ -890,6 +892,14 @@ const CourseDetail: FC = () => {
     const handleEnroll = () => {
         setShowEnrollmentForm(true);
     };
+
+    useEffect(() => {
+        if (showEnrollmentForm) {
+            setTimeout(() => {
+                enrollmentFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100); // A small delay ensures the element is rendered before scrolling
+        }
+    }, [showEnrollmentForm]);
 
     const handleFormSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -1332,35 +1342,57 @@ const CourseDetail: FC = () => {
 
     return (
         <DashboardLayout userType="student">
-            <div className="container mx-auto px-4 py-8">
-                <Card>
-                    <CardHeader>
-                        {course.image_url ? (
-                            <img src={course.image_url} alt={course.title} className="w-full h-64 object-cover rounded-t-lg" />
-                        ) : (
-                            <div className="w-full h-64 bg-gray-200 flex items-center justify-center rounded-t-lg">
-                                <span className="text-gray-500">No Image Available</span>
+            <div className="container mx-auto px-6 py-10">
+                <Card className="bg-white/10 backdrop-blur-lg border border-white/20 overflow-hidden shadow-2xl">
+                    <CardHeader className="p-0">
+                        <div className="relative w-full h-64 md:h-80">
+                            {course.image_url ? (
+                                <img src={course.image_url} alt={course.title} className="absolute inset-0 w-full h-full object-cover" />
+                            ) : (
+                                <div className="absolute inset-0 bg-gradient-to-br from-purple-600/40 to-pink-500/40 flex items-center justify-center">
+                                    <span className="text-white/80">No Image Available</span>
+                                </div>
+                            )}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
+                            <div className="absolute bottom-0 left-0 right-0 p-6">
+                                <h1 className="text-2xl md:text-3xl font-bold text-white">
+                                    <span className="bg-gradient-to-r from-purple-400 to-pink-400 text-transparent bg-clip-text">{course.title}</span>
+                                </h1>
+                                <p className="text-gray-200/90 mt-1">Taught by: {course.instructor_name}</p>
                             </div>
-                        )}
-                        <CardTitle className="text-3xl font-bold mt-4">{course.title}</CardTitle>
-                        <CardDescription>Taught by: {course.instructor_name}</CardDescription>
+                        </div>
                     </CardHeader>
                     <CardContent className="p-6">
                         <div className="mb-6">
                             <h3 className="text-xl font-semibold mb-3 text-foreground">Course Description</h3>
-                            <div className="rounded-lg p-4 bg-muted/50 dark:bg-muted/20 border">
-                                <p className="leading-relaxed whitespace-pre-wrap text-foreground/80">{course.description}</p>
+                            <div className="rounded-lg p-4 bg-muted/50 dark:bg-muted/20 border relative">
+                                <p className="leading-relaxed whitespace-pre-wrap text-foreground/80">
+                                    {course.description.length > 400 && !isDescriptionExpanded
+                                        ? `${course.description.substring(0, 400)}...`
+                                        : course.description}
+                                </p>
+                                {course.description.length > 400 && (
+                                    <Button 
+                                        variant="link"
+                                        onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                                        className="text-purple-400 hover:text-purple-300 px-0 mt-2 font-semibold"
+                                    >
+                                        {isDescriptionExpanded ? 'Show Less' : 'Show More'}
+                                    </Button>
+                                )}
                             </div>
                         </div>
                         
                         {/* Enrollment Application Section */}
                         {applicationStatus === 'NOT_APPLIED' && !showEnrollmentForm && (
-                            <Button onClick={handleEnroll} size="lg" className="w-full">
-                                Enroll Request Application (${course.price})
+                            <Button onClick={handleEnroll} size="lg" className="w-full text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transform hover:scale-105 transition-transform duration-300 shadow-lg shadow-purple-500/30 rounded-full font-semibold flex items-center justify-center gap-2">
+                                <ClipboardEdit className="h-5 w-5" />
+                                <span>Enroll Request Application (${course.price})</span>
                             </Button>
                         )}
                         
                         {applicationStatus === 'NOT_APPLIED' && showEnrollmentForm && (
+                            <div ref={enrollmentFormRef}>
                             <Card className="mt-8 border-2 border-primary/20 shadow-xl bg-gradient-to-br from-background via-background to-primary/5">
                                 <CardHeader className="relative overflow-hidden">
                                     <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent"></div>
@@ -1380,16 +1412,14 @@ const CourseDetail: FC = () => {
                                                 </CardDescription>
                                             </div>
                                         </div>
-                                        <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                                        <div className="mt-4 p-4 bg-gradient-to-br from-purple-900/20 to-pink-900/10 rounded-lg border border-white/10 backdrop-blur-sm">
                                             <div className="flex items-start space-x-3">
-                                                <div className="flex-shrink-0">
-                                                    <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" fill="currentColor" viewBox="0 0 24 24">
-                                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                                                    </svg>
+                                                <div className="flex-shrink-0 pt-0.5">
+                                                    <Info className="w-5 h-5 text-purple-400" />
                                                 </div>
                                                 <div>
-                                                    <h4 className="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-1">Application Requirements</h4>
-                                                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                                                    <h4 className="text-sm font-semibold text-gray-200 mb-1">Application Requirements</h4>
+                                                    <p className="text-sm text-gray-400">
                                                         Please provide accurate information and upload your qualification certificate. All applications are reviewed within 24-48 hours.
                                                     </p>
                                                 </div>
@@ -1562,18 +1592,16 @@ const CourseDetail: FC = () => {
                                             <Button
                                                 type="submit"
                                                 disabled={isSubmitting}
-                                                className="flex-1 h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 shadow-lg hover:shadow-xl transition-all duration-200"
+                                                className="flex-1 h-12 text-base font-semibold text-white bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 shadow-lg hover:shadow-pink-500/30 rounded-lg transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:scale-100"
                                             >
                                                 {isSubmitting ? (
                                                     <>
                                                         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                                                        Submitting Application...
+                                                        Submitting...
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <svg className="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                                                        </svg>
+                                                        <Send className="mr-2 h-5 w-5" />
                                                         Submit Application
                                                     </>
                                                 )}
@@ -1591,6 +1619,7 @@ const CourseDetail: FC = () => {
                                     </form>
                                 </CardContent>
                             </Card>
+                            </div>
                         )}
                         
                         {applicationStatus === 'PENDING' && (

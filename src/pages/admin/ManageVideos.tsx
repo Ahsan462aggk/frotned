@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PlusCircle, Loader2, Trash2, Pencil, PlayCircle } from 'lucide-react';
+import { Plus, Loader2, Trash2, Pencil, PlayCircle, Video as VideoIcon, UploadCloud, Film } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +13,7 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Card, CardContent } from '@/components/ui/card';
 
 // --- Type Definitions ---
 interface Course {
@@ -268,125 +269,116 @@ const ManageVideos: React.FC = () => {
 
   return (
     <DashboardLayout userType="admin">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold">Manage Videos</h1>
-        <div className="flex items-center space-x-4">
-          {loadingCourses ? (
-            <Loader2 className="h-6 w-6 animate-spin" />
-          ) : (
-            <Select onValueChange={setSelectedCourseId} value={selectedCourseId}>
-              <SelectTrigger className="w-[280px]">
-                <SelectValue placeholder="Select a course" />
-              </SelectTrigger>
-              <SelectContent>
-                {courses.map(course => (
-                  <SelectItem key={course.id} value={course.id}>
-                    {course.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <Button onClick={() => handleOpenModal()} disabled={!selectedCourseId}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Add New Video
-          </Button>
+      <div className="relative min-h-screen w-full bg-gray-900 text-white overflow-hidden">
+        <div className="absolute inset-0 z-0">
+            <div className="absolute top-0 left-0 w-72 h-72 bg-purple-600 rounded-full filter blur-3xl opacity-30 animate-blob"></div>
+            <div className="absolute top-0 right-0 w-72 h-72 bg-pink-600 rounded-full filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
+            <div className="absolute bottom-0 left-1/4 w-72 h-72 bg-blue-600 rounded-full filter blur-3xl opacity-30 animate-blob animation-delay-4000"></div>
         </div>
-      </div>
+        <div className="relative z-10 p-4 sm:p-6 lg:p-8">
+            <Card className="bg-gray-900/50 backdrop-blur-lg border border-purple-500/20 shadow-2xl rounded-2xl">
+                <CardContent className="p-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                        <div className="flex items-center gap-3">
+                            <VideoIcon className="w-10 h-10 text-purple-400"/>
+                            <div>
+                                <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 text-transparent bg-clip-text">Manage Videos</h1>
+                                <p className="text-gray-400">Add, edit, or delete course videos.</p>
+                            </div>
+                        </div>
+                        <Button onClick={() => handleOpenModal()} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold hover:scale-105 transition-transform shadow-lg w-full sm:w-auto">
+                            <Plus className="mr-2 h-5 w-5" /> Add New Video
+                        </Button>
+                    </div>
 
-      <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Order</TableHead>
-              <TableHead>Title</TableHead>
-              <TableHead>Duration</TableHead>
-              <TableHead>Preview</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loadingVideos ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-4">Loading videos...</TableCell></TableRow>
-            ) : videos.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-4">No videos found for this course.</TableCell></TableRow>
-            ) : (
-              videos.sort((a, b) => a.order - b.order).map((video) => (
-                <TableRow key={video.id}>
-                  <TableCell>{video.order}</TableCell>
-                  <TableCell className="font-medium">{video.title}</TableCell>
-                  <TableCell>{video.duration ? `${(video.duration / 60).toFixed(2)} mins` : 'N/A'}</TableCell>
-                  <TableCell>{video.is_preview ? 'Yes' : 'No'}</TableCell>
-                  <TableCell className="text-right space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => handleOpenPreviewModal(video.id)}><PlayCircle className="h-4 w-4" /></Button>
-                    <Button variant="outline" size="sm" onClick={() => handleOpenModal(video)}><Pencil className="h-4 w-4" /></Button>
-                    <Button variant="destructive" size="sm" onClick={() => handleDelete(video.id)}><Trash2 className="h-4 w-4" /></Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                    <div className="mb-6 max-w-md">
+                        <Select onValueChange={setSelectedCourseId} value={selectedCourseId} disabled={loadingCourses}>
+                            <SelectTrigger className="bg-gray-800/70 border-gray-700 focus:border-purple-500 rounded-xl">
+                                <SelectValue placeholder={loadingCourses ? "Loading courses..." : "Select a course to view videos"} />
+                            </SelectTrigger>
+                            <SelectContent className="bg-gray-900/80 backdrop-blur-xl border-purple-500/30 text-white rounded-xl">
+                                {courses.map(course => <SelectItem key={course.id} value={course.id} className="hover:bg-purple-500/20">{course.title}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
 
-      <Dialog open={isModalOpen} onOpenChange={(isOpen) => !isUploading && (isOpen ? setIsModalOpen(true) : handleCloseModal())}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{currentVideo?.id ? 'Edit Video' : 'Add New Video'}</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="title" className="text-right">Title</Label>
-              <Input id="title" value={currentVideo?.title || ''} onChange={(e) => setCurrentVideo(v => ({...v, title: e.target.value}))} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="description" className="text-right">Description</Label>
-              <Textarea id="description" value={currentVideo?.description || ''} onChange={(e) => setCurrentVideo(v => ({...v, description: e.target.value}))} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-                 <Label htmlFor="order" className="text-right">Order</Label>
-                 <Input id="order" type="number" value={currentVideo?.order || 0} onChange={(e) => setCurrentVideo(v => ({...v, order: parseInt(e.target.value) || 0}))} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="is_preview" className="text-right">Preview</Label>
-                <Checkbox id="is_preview" checked={currentVideo?.is_preview || false} onCheckedChange={(checked) => setCurrentVideo(v => ({...v, is_preview: !!checked }))} />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="video-file" className="text-right">Video File</Label>
-              <Input id="video-file" type="file" accept="video/*" onChange={handleFileChange} className="col-span-3" />
-            </div>
-            {selectedFile && <p className='text-sm text-center'>New file selected: {selectedFile.name}</p>}
-            {isUploading && (
-              <div className="col-span-4">
-                <Progress value={uploadProgress} className="w-full" />
-                <p className='text-center text-sm mt-1'>{uploadProgress}% uploaded</p>
+                    <div className="overflow-x-auto">
+                        <Table className="w-full">
+                            <TableHeader>
+                                <TableRow className="border-b-purple-500/30 hover:bg-transparent">
+                                    <TableHead className="text-purple-300">Order</TableHead>
+                                    <TableHead className="text-purple-300">Title</TableHead>
+                                    <TableHead className="text-purple-300">Duration</TableHead>
+                                    <TableHead className="text-purple-300">Preview</TableHead>
+                                    <TableHead className="text-right text-purple-300">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {loadingVideos ? (
+                                    <TableRow><TableCell colSpan={5} className="text-center py-20"><Loader2 className="mx-auto h-10 w-10 animate-spin text-purple-400" /></TableCell></TableRow>
+                                ) : videos.length === 0 ? (
+                                    <TableRow><TableCell colSpan={5} className="text-center py-20 text-gray-500">No videos found. Select a course or add a new video.</TableCell></TableRow>
+                                ) : ( videos.sort((a, b) => a.order - b.order).map(video => (
+                                    <TableRow key={video.id} className="border-b-gray-800 hover:bg-purple-500/10">
+                                        <TableCell>{video.order}</TableCell>
+                                        <TableCell className="font-medium text-white">{video.title}</TableCell>
+                                        <TableCell>{video.duration ? `${(video.duration / 60).toFixed(2)} mins` : 'N/A'}</TableCell>
+                                        <TableCell>{video.is_preview ? <span className="text-green-400">Yes</span> : 'No'}</TableCell>
+                                        <TableCell className="text-right space-x-1">
+                                            <Button variant="ghost" size="icon" onClick={() => handleOpenPreviewModal(video.id)} className="text-green-400 hover:bg-green-500/20 hover:text-green-300 rounded-full"><PlayCircle className="h-4 w-4" /></Button>
+                                            <Button variant="ghost" size="icon" onClick={() => handleOpenModal(video)} className="text-blue-400 hover:bg-blue-500/20 hover:text-blue-300 rounded-full"><Pencil className="h-4 w-4" /></Button>
+                                            <Button variant="ghost" size="icon" onClick={() => handleDelete(video.id)} className="text-red-500 hover:bg-red-500/20 hover:text-red-400 rounded-full"><Trash2 className="h-4 w-4" /></Button>
+                                        </TableCell>
+                                    </TableRow>
+                                )))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+
+        <Dialog open={isModalOpen} onOpenChange={(isOpen) => !isUploading && (isOpen ? setIsModalOpen(true) : handleCloseModal())}>
+          <DialogContent className="bg-gray-900/80 backdrop-blur-xl border-purple-500/30 text-white max-w-2xl rounded-2xl shadow-2xl">
+            <DialogHeader><DialogTitle className="text-3xl font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-transparent bg-clip-text pb-2 flex items-center gap-3"><VideoIcon className="w-8 h-8" />{currentVideo?.id ? 'Edit Video' : 'Add New Video'}</DialogTitle></DialogHeader>
+            <div className="space-y-6 py-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div><Label htmlFor="title" className="text-gray-400">Title</Label><Input id="title" value={currentVideo?.title || ''} onChange={(e) => setCurrentVideo(v => ({...v, title: e.target.value}))} className="bg-gray-800/70 border-gray-700 focus:border-purple-500 mt-2" /></div>
+                <div><Label htmlFor="order" className="text-gray-400">Order</Label><Input id="order" type="number" value={currentVideo?.order || 0} onChange={(e) => setCurrentVideo(v => ({...v, order: parseInt(e.target.value) || 0}))} className="bg-gray-800/70 border-gray-700 focus:border-purple-500 mt-2" /></div>
               </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={handleCloseModal} disabled={isUploading}>Cancel</Button>
-            <Button onClick={handleSave} disabled={isUploading}>
-              {isUploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              <div><Label htmlFor="description" className="text-gray-400">Description</Label><Textarea id="description" value={currentVideo?.description || ''} onChange={(e) => setCurrentVideo(v => ({...v, description: e.target.value}))} className="bg-gray-800/70 border-gray-700 focus:border-purple-500 mt-2 min-h-[80px]" /></div>
+              <div>
+                <Label htmlFor="video-file" className="text-gray-400">Video File</Label>
+                <div className="mt-2 flex justify-center items-center w-full">
+                    <label htmlFor="video-file" className="flex flex-col items-center justify-center w-full h-48 border-2 border-gray-700 border-dashed rounded-lg cursor-pointer bg-gray-800/70 hover:bg-gray-800/90">
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                            <UploadCloud className="w-10 h-10 mb-3 text-gray-400"/>
+                            {selectedFile ? <p className="mb-2 text-sm text-pink-400 font-semibold">{selectedFile.name}</p> : <p className="mb-2 text-sm text-gray-500"><span className="font-semibold">Click to upload</span> or drag and drop</p>}
+                            <p className="text-xs text-gray-500">MP4, AVI, MOV (MAX. 500MB)</p>
+                        </div>
+                        <Input id="video-file" type="file" accept="video/*" onChange={handleFileChange} className="hidden" />
+                    </label>
+                </div>
+              </div>
+              {isUploading && <div className="w-full"><Progress value={uploadProgress} className="w-full bg-gray-700 [&>div]:bg-gradient-to-r [&>div]:from-purple-500 [&>div]:to-pink-500" /><p className='text-center text-sm mt-1 text-gray-400'>{uploadProgress}% uploaded</p></div>}
+              <div className="flex items-center space-x-2"><Checkbox id="is_preview" checked={currentVideo?.is_preview || false} onCheckedChange={(checked) => setCurrentVideo(v => ({...v, is_preview: !!checked }))} className="w-5 h-5 border-gray-600 data-[state=checked]:bg-pink-500" /><Label htmlFor="is_preview" className="text-gray-300">Allow this video to be previewed by non-enrolled students</Label></div>
+            </div>
+            <DialogFooter className="mt-auto pt-4 border-t border-gray-700/50 gap-2 sm:gap-0">
+              <Button variant="outline" onClick={handleCloseModal} disabled={isUploading} className="border-gray-700 hover:bg-gray-800">Cancel</Button>
+              <Button onClick={handleSave} disabled={isUploading} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold hover:scale-105 transition-transform">
+                {isUploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Video'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      <Dialog open={isPreviewModalOpen} onOpenChange={(isOpen) => !isOpen && handleClosePreviewModal()}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Video Preview</DialogTitle>
-          </DialogHeader>
-          {previewVideoUrl && (
-            <video controls autoPlay src={previewVideoUrl} className="w-full rounded-lg mt-4 max-h-[70vh]">
-              Your browser does not support the video tag.
-            </video>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={handleClosePreviewModal}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
+        <Dialog open={isPreviewModalOpen} onOpenChange={(isOpen) => !isOpen && handleClosePreviewModal()}>
+          <DialogContent className="bg-gray-900/80 backdrop-blur-xl border-purple-500/30 text-white max-w-4xl rounded-2xl shadow-2xl">
+            <DialogHeader><DialogTitle className="text-2xl font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-transparent bg-clip-text flex items-center gap-3"><Film className="w-7 h-7"/> Video Preview</DialogTitle></DialogHeader>
+            {previewVideoUrl && <video controls autoPlay src={previewVideoUrl} className="w-full rounded-lg mt-4 max-h-[70vh]">Your browser does not support the video tag.</video>}
+          </DialogContent>
+        </Dialog>
+      </div>
     </DashboardLayout>
   );
 };
