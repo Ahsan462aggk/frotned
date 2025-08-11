@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import Hls from 'hls.js';
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -44,6 +45,7 @@ interface Video {
 
 
 const ManageVideos: React.FC = () => {
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [videos, setVideos] = useState<Video[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
@@ -95,6 +97,30 @@ const ManageVideos: React.FC = () => {
       fetchVideosByCourse(selectedCourseId);
     }
   }, [selectedCourseId, fetchVideosByCourse]);
+
+  useEffect(() => {
+    let hls: Hls | null = null;
+    if (previewVideoUrl && videoRef.current) {
+      const videoElement = videoRef.current;
+      if (previewVideoUrl.endsWith('.m3u8')) {
+        if (Hls.isSupported()) {
+          hls = new Hls();
+          hls.loadSource(previewVideoUrl);
+          hls.attachMedia(videoElement);
+        } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+          videoElement.src = previewVideoUrl;
+        }
+      } else {
+        videoElement.src = previewVideoUrl;
+      }
+    }
+
+    return () => {
+      if (hls) {
+        hls.destroy();
+      }
+    };
+  }, [previewVideoUrl]);
 
   const handleOpenModal = (video: Partial<Video> | null = null) => {
     if (video) {
@@ -377,7 +403,7 @@ const ManageVideos: React.FC = () => {
             <DialogTitle>Video Preview</DialogTitle>
           </DialogHeader>
           {previewVideoUrl && (
-            <video controls autoPlay src={previewVideoUrl} className="w-full rounded-lg mt-4 max-h-[70vh]">
+            <video ref={videoRef} controls autoPlay className="w-full rounded-lg mt-4 max-h-[70vh]">
               Your browser does not support the video tag.
             </video>
           )}
